@@ -1,0 +1,70 @@
+{
+ "tasks": [
+  {
+   "task_id": "m2w-easy-mdn-flat",
+   "goal": "Starting from the MDN JavaScript Array reference page, open the documentation for the flat() method and report in one sentence what it returns.",
+   "start_url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array",
+   "benchmark": "mind2web",
+   "difficulty": "easy",
+   "reference_steps": 3,
+   "eval_spec": {
+    "type": "webjudge"
+   }
+  },
+  {
+   "task_id": "m2w-easy-pypi-flask",
+   "goal": "Starting from the PyPI home page, use search to find the 'flask' package and report its latest released version number.",
+   "start_url": "https://pypi.org/",
+   "benchmark": "mind2web",
+   "difficulty": "easy",
+   "reference_steps": 4,
+   "eval_spec": {
+    "type": "webjudge"
+   }
+  },
+  {
+   "task_id": "m2w-medium-wiki-capital-pop",
+   "goal": "Starting from the Wikipedia main page, find the current population of the capital city of Australia (search for the country, identify its capital, then read that city's population). Report the population figure.",
+   "start_url": "https://en.wikipedia.org/wiki/Main_Page",
+   "benchmark": "mind2web",
+   "difficulty": "medium",
+   "reference_steps": 6,
+   "eval_spec": {
+    "type": "webjudge"
+   }
+  },
+  {
+   "task_id": "m2w-medium-pypi-httpx",
+   "goal": "Starting from the PyPI home page, use search to find the 'httpx' package and report its latest released version number.",
+   "start_url": "https://pypi.org/",
+   "benchmark": "mind2web",
+   "difficulty": "medium",
+   "reference_steps": 5,
+   "eval_spec": {
+    "type": "webjudge"
+   }
+  },
+  {
+   "task_id": "m2w-hard-wiki-compare-height",
+   "goal": "Starting from the Wikipedia main page, determine which is taller: the Eiffel Tower or the Statue of Liberty (including its pedestal). Search out each structure, read its height, and report both heights with the conclusion.",
+   "start_url": "https://en.wikipedia.org/wiki/Main_Page",
+   "benchmark": "mind2web",
+   "difficulty": "hard",
+   "reference_steps": 11,
+   "eval_spec": {
+    "type": "webjudge"
+   }
+  },
+  {
+   "task_id": "m2w-hard-mdn-compare",
+   "goal": "Starting from the MDN JavaScript Array reference page, compare Array.prototype.map() and Array.prototype.forEach(): open each method's page and report the single most important difference (what each returns).",
+   "start_url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array",
+   "benchmark": "mind2web",
+   "difficulty": "hard",
+   "reference_steps": 10,
+   "eval_spec": {
+    "type": "webjudge"
+   }
+  }
+ ]
+}

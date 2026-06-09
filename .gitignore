@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+.venv/
+venv/
+.env
+
+# Eval artifacts (regenerable run outputs)
+results/trajectories/*.jsonl
+results/reports/*.png
+results/reports/*.csv
+results/reports/*.md
+results/screenshots/
+!results/**/.gitkeep
+
+# Playwright
+.playwright/
+
+# WebArena auth states (session cookies) + downloaded site images — never commit
+.auth/
+webarena-images/
+*.tar
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

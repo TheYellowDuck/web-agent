@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "web-agent"
+version = "0.1.0"
+description = "Eval-driven autonomous web agent — built from scratch, benchmarked honestly."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "George Zhang" }]
+
+# Core deps: a fresh `pip install` runs the agent against the default model
+# (Claude) with no extra steps. `anthropic` is core because it's the default
+# provider; other providers are optional extras, and any model not covered by an
+# installed native SDK falls back to the universal LiteLLM adapter at runtime.
+dependencies = [
+    "playwright>=1.44",
+    "pandas>=2.0",
+    "matplotlib>=3.7",
+    "tabulate>=0.9",
+    "anthropic>=0.69",
+]
+
+[project.optional-dependencies]
+# Provider-native adapters. Not required — the factory falls back to LiteLLM —
+# but install these for first-class behaviour / accurate cost on that provider.
+openai = ["openai>=1.40"]
+gemini = ["google-genai>=0.3"]
+# Universal adapter — one dependency that speaks to basically every provider
+# (OpenAI, Anthropic, Gemini, Mistral, Bedrock, Ollama/local, ...).
+litellm = ["litellm>=1.40"]
+# browser-use is a *baseline* to compare against, never the agent itself.
+baseline = ["browser-use>=0.1.40"]
+# Everything, for development.
+all = [
+    "anthropic>=0.69",
+    "openai>=1.40",
+    "google-genai>=0.3",
+    "litellm>=1.40",
+    "browser-use>=0.1.40",
+]
+dev = ["pytest>=8.0", "ruff>=0.5"]
+
+[project.scripts]
+web-agent-eval = "eval.harness:main"
+web-agent-charts = "scripts.make_charts:main"
+
+[tool.setuptools]
+packages = [
+    "agent",
+    "eval",
+    "eval.webarena",
+    "eval.mind2web",
+    "eval.baselines",
+    "scripts",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"

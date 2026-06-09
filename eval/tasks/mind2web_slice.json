@@ -1,0 +1,110 @@
+{
+  "_comment": "Frozen Online-Mind2Web-style slice. v3: 15 navigation-forcing tasks (5 easy / 5 medium / 5 hard). Start URLs are deliberately far from the answer so each task requires a real search/click chain — no one-step reads off the landing page (v1's shortcut inflation). Sites chosen for bot-robustness: Wikipedia (search), MDN (static link nav), Python docs, PyPI (search). Scored by WebJudge (LLM-as-judge). Live web is flaky by design; that's part of the realistic signal. Reference step counts are rough human estimates used for step-efficiency.",
+  "tasks": [
+    {
+      "task_id": "m2w-easy-mdn-flat",
+      "goal": "Starting from the MDN JavaScript Array reference page, open the documentation for the flat() method and report in one sentence what it returns.",
+      "start_url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array",
+      "benchmark": "mind2web", "difficulty": "easy", "reference_steps": 3,
+      "eval_spec": {"type": "webjudge"}
+    },
+    {
+      "task_id": "m2w-easy-mdn-includes",
+      "goal": "Starting from the MDN JavaScript Array reference page, open the documentation for the includes() method and report what type of value it returns.",
+      "start_url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array",
+      "benchmark": "mind2web", "difficulty": "easy", "reference_steps": 3,
+      "eval_spec": {"type": "webjudge"}
+    },
+    {
+      "task_id": "m2w-easy-mdn-string-trim",
+      "goal": "Starting from the MDN JavaScript String reference page, open the documentation for the trim() method and report in one sentence what it does.",
+      "start_url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String",
+      "benchmark": "mind2web", "difficulty": "easy", "reference_steps": 3,
+      "eval_spec": {"type": "webjudge"}
+    },
+    {
+      "task_id": "m2w-easy-pypi-flask",
+      "goal": "Starting from the PyPI home page, use search to find the 'flask' package and report its latest released version number.",
+      "start_url": "https://pypi.org/",
+      "benchmark": "mind2web", "difficulty": "easy", "reference_steps": 4,
+      "eval_spec": {"type": "webjudge"}
+    },
+    {
+      "task_id": "m2w-easy-wiki-guido",
+      "goal": "Starting from the Wikipedia article on Guido van Rossum, navigate to the article about the Python programming language and report the year Python was first released.",
+      "start_url": "https://en.wikipedia.org/wiki/Guido_van_Rossum",
+      "benchmark": "mind2web", "difficulty": "easy", "reference_steps": 3,
+      "eval_spec": {"type": "webjudge"}
+    },
+    {
+      "task_id": "m2w-medium-wiki-capital-pop",
+      "goal": "Starting from the Wikipedia main page, find the current population of the capital city of Australia (search for the country, identify its capital, then read that city's population). Report the population figure.",
+      "start_url": "https://en.wikipedia.org/wiki/Main_Page",
+      "benchmark": "mind2web", "difficulty": "medium", "reference_steps": 6,
+      "eval_spec": {"type": "webjudge"}
+    },
+    {
+      "task_id": "m2w-medium-wiki-nz-capital",
+      "goal": "Starting from the Wikipedia main page, find the capital city of New Zealand and report its name.",
+      "start_url": "https://en.wikipedia.org/wiki/Main_Page",
+      "benchmark": "mind2web", "difficulty": "medium", "reference_steps": 5,
+      "eval_spec": {"type": "webjudge"}
+    },
+    {
+      "task_id": "m2w-medium-pypi-httpx",
+      "goal": "Starting from the PyPI home page, use search to find the 'httpx' package and report its latest released version number.",
+      "start_url": "https://pypi.org/",
+      "benchmark": "mind2web", "difficulty": "medium", "reference_steps": 5,
+      "eval_spec": {"type": "webjudge"}
+    },
+    {
+      "task_id": "m2w-medium-mdn-map",
+      "goal": "Starting from the MDN JavaScript Reference home page, navigate to the Array map() method documentation and report what it returns.",
+      "start_url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference",
+      "benchmark": "mind2web", "difficulty": "medium", "reference_steps": 5,
+      "eval_spec": {"type": "webjudge"}
+    },
+    {
+      "task_id": "m2w-medium-python-random",
+      "goal": "Starting from the Python 3 documentation home page, navigate to the 'random' module documentation and report what random.choice() does in one sentence.",
+      "start_url": "https://docs.python.org/3/",
+      "benchmark": "mind2web", "difficulty": "medium", "reference_steps": 5,
+      "eval_spec": {"type": "webjudge"}
+    },
+    {
+      "task_id": "m2w-hard-wiki-compare-height",
+      "goal": "Starting from the Wikipedia main page, determine which is taller: the Eiffel Tower or the Statue of Liberty (including its pedestal). Search out each structure, read its height, and report both heights with the conclusion.",
+      "start_url": "https://en.wikipedia.org/wiki/Main_Page",
+      "benchmark": "mind2web", "difficulty": "hard", "reference_steps": 11,
+      "eval_spec": {"type": "webjudge"}
+    },
+    {
+      "task_id": "m2w-hard-wiki-compare-pop",
+      "goal": "Starting from the Wikipedia main page, determine which country has the larger population: Canada or Australia. Look up each country's population and report both figures with the conclusion.",
+      "start_url": "https://en.wikipedia.org/wiki/Main_Page",
+      "benchmark": "mind2web", "difficulty": "hard", "reference_steps": 11,
+      "eval_spec": {"type": "webjudge"}
+    },
+    {
+      "task_id": "m2w-hard-wiki-compare-river",
+      "goal": "Starting from the Wikipedia main page, determine which river is longer: the Nile or the Amazon. Read each river's length and report both lengths with the conclusion.",
+      "start_url": "https://en.wikipedia.org/wiki/Main_Page",
+      "benchmark": "mind2web", "difficulty": "hard", "reference_steps": 11,
+      "eval_spec": {"type": "webjudge"}
+    },
+    {
+      "task_id": "m2w-hard-mdn-compare",
+      "goal": "Starting from the MDN JavaScript Array reference page, compare Array.prototype.map() and Array.prototype.forEach(): open each method's page and report the single most important difference (what each returns).",
+      "start_url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array",
+      "benchmark": "mind2web", "difficulty": "hard", "reference_steps": 10,
+      "eval_spec": {"type": "webjudge"}
+    },
+    {
+      "task_id": "m2w-hard-python-sorted",
+      "goal": "Starting from the Python 3 documentation home page, find the documentation for both list.sort() and the built-in sorted(), and report the key difference between them (in-place vs returning a new list).",
+      "start_url": "https://docs.python.org/3/",
+      "benchmark": "mind2web", "difficulty": "hard", "reference_steps": 12,
+      "eval_spec": {"type": "webjudge"}
+    }
+  ]
+}

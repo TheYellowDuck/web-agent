@@ -1,0 +1,189 @@
+[
+ {
+  "sites": [
+   "shopping"
+  ],
+  "task_id": 274,
+  "require_login": true,
+  "storage_state": "./.auth/shopping_state.json",
+  "start_url": "__SHOPPING__",
+  "geolocation": null,
+  "intent_template": "Search for \"{{keyword}}\"",
+  "instantiation_dict": {
+   "keyword": "usb wifi"
+  },
+  "intent": "Search for \"usb wifi\"",
+  "require_reset": false,
+  "eval": {
+   "eval_types": [
+    "url_match"
+   ],
+   "reference_answers": null,
+   "reference_url": "__SHOPPING__/catalogsearch/result/?q=usb+wifi",
+   "program_html": [],
+   "url_note": "GOLD in PRED"
+  },
+  "intent_template_id": 212,
+  "reference_length": 3,
+  "_tier": "easy"
+ },
+ {
+  "sites": [
+   "shopping"
+  ],
+  "task_id": 260,
+  "require_login": true,
+  "storage_state": "./.auth/shopping_state.json",
+  "start_url": "__SHOPPING__",
+  "geolocation": null,
+  "intent_template": "I want to browse the products in the {{category}} category",
+  "instantiation_dict": {
+   "category": "Video Game"
+  },
+  "intent": "I want to browse the products in the Video Game category",
+  "require_reset": false,
+  "eval": {
+   "eval_types": [
+    "url_match"
+   ],
+   "reference_answers": null,
+   "reference_url": "__SHOPPING__/video-games.html",
+   "program_html": [],
+   "url_note": "GOLD in PRED"
+  },
+  "intent_template_id": 211,
+  "reference_length": 3,
+  "_tier": "easy"
+ },
+ {
+  "sites": [
+   "shopping"
+  ],
+  "task_id": 269,
+  "require_login": true,
+  "storage_state": "./.auth/shopping_state.json",
+  "start_url": "__SHOPPING__",
+  "geolocation": null,
+  "intent_template": "Show me products under ${{price}} in \"{{product_category}}\" category",
+  "instantiation_dict": {
+   "price": "25",
+   "product_category": "women shoes"
+  },
+  "intent": "Show me products under $25 in \"women shoes\" category",
+  "require_reset": false,
+  "eval": {
+   "eval_types": [
+    "url_match"
+   ],
+   "reference_answers": null,
+   "reference_url": "__SHOPPING__/clothing-shoes-jewelry/women/shoes.html?price=0-25",
+   "program_html": [],
+   "url_note": "GOLD in PRED"
+  },
+  "intent_template_id": 139,
+  "reference_length": 7,
+  "_tier": "medium"
+ },
+ {
+  "sites": [
+   "shopping"
+  ],
+  "task_id": 324,
+  "require_login": true,
+  "storage_state": "./.auth/shopping_state.json",
+  "start_url": "__SHOPPING__",
+  "geolocation": null,
+  "intent_template": "Show me the \"{{product}}\" listings by {{sorting_order}}.",
+  "instantiation_dict": {
+   "product": "chairs",
+   "sorting_order": "ascending price"
+  },
+  "intent": "Show me the \"chairs\" listings by ascending price.",
+  "require_reset": false,
+  "eval": {
+   "eval_types": [
+    "url_match"
+   ],
+   "reference_answers": null,
+   "reference_url": "__SHOPPING__/catalogsearch/result/index/?product_list_order=price&q=chairs&product_list_dir=asc",
+   "program_html": [],
+   "url_note": "GOLD in PRED"
+  },
+  "intent_template_id": 208,
+  "reference_length": 7,
+  "_tier": "medium"
+ },
+ {
+  "sites": [
+   "shopping"
+  ],
+  "task_id": 21,
+  "require_login": true,
+  "storage_state": "./.auth/shopping_state.json",
+  "start_url": "__SHOPPING__/6s-wireless-headphones-over-ear-noise-canceling-hi-fi-bass-foldable-stereo-wireless-kid-headsets-earbuds-with-built-in-mic-micro-sd-tf-fm-for-iphone-samsung-ipad-pc-black-gold.html",
+  "geolocation": null,
+  "intent_template": "List out reviewers, if exist, who mention about {{description}}",
+  "instantiation_dict": {
+   "description": "ear cups being small"
+  },
+  "intent": "List out reviewers, if exist, who mention about ear cups being small",
+  "require_reset": false,
+  "eval": {
+   "eval_types": [
+    "string_match"
+   ],
+   "reference_answers": {
+    "must_include": [
+     "Joseph Brzezinski",
+     "Catso",
+     "Dibbins",
+     "Anglebert Dinkherhump",
+     "Michelle Davis"
+    ]
+   },
+   "reference_url": "",
+   "program_html": [],
+   "string_note": "",
+   "reference_answer_raw_annotation": "Joseph Brzezinski, Catso, Dibbins, Anglebert Dinkherhump, Michelle Davis"
+  },
+  "intent_template_id": 222,
+  "reference_length": 12,
+  "_tier": "hard"
+ },
+ {
+  "sites": [
+   "shopping"
+  ],
+  "task_id": 163,
+  "require_login": true,
+  "storage_state": "./.auth/shopping_state.json",
+  "start_url": "__SHOPPING__/ostent-16gb-memory-card-stick-storage-for-sony-ps-vita-psv1000-2000-pch-z081-z161-z321-z641.html",
+  "geolocation": null,
+  "intent_template": "What are the main criticisms of this product? Please extract the relevant sentences.",
+  "instantiation_dict": {},
+  "intent": "What are the main criticisms of this product? Please extract the relevant sentences.",
+  "require_reset": false,
+  "eval": {
+   "eval_types": [
+    "string_match"
+   ],
+   "reference_answers": {
+    "must_include": [
+     "I ordered the 16gb but I only got 14 gigs even though I formatted the card",
+     "The memory card is kind of slow on games and downloads",
+     "No original packaging It's used and the previous owners data has not been erased",
+     "The product is a legit sony hardware that have been owned by someone else before",
+     "The media could not be loaded",
+     "I could not format the card so I wasn\u2019t able to use it for my VITA"
+    ]
+   },
+   "reference_url": "",
+   "program_html": [],
+   "string_note": "",
+   "reference_answer_raw_annotation": "I ordered the 16gb but I only got 14 gigs even though I formatted the card. The memory card is kind of slow on games and downloads. No original packaging It's used and the previous owners data has not been erased. The product is a legit sony hardware that have been owned by someone else before The media could not be loaded.  I could not format the card so I wasn\u2019t able to use it for my VITA"
+  },
+  "intent_template_id": 136,
+  "reference_length": 12,
+  "_tier": "hard"
+ }
+]

@@ -1,0 +1,28 @@
+[
+  {
+    "_comment": "WebArena-schema sample tasks used to verify the adapter end-to-end without the real Dockerized sites. The __HOMEPAGE__ placeholder is templated from $WA_HOMEPAGE (config.py); the webarena integration smoke points it at the bundled local site. Real WebArena task files (test.raw.json) use this exact shape — set WEBARENA_TASKS to one and the same loader/scorer apply.",
+    "task_id": 9001,
+    "intent": "What is the price of the Blue Widget?",
+    "start_url": "__HOMEPAGE__/products.html",
+    "sites": ["homepage"],
+    "reference_length": 2,
+    "eval": {
+      "eval_types": ["string_match"],
+      "reference_answers": {"must_include": ["19.99"]},
+      "reference_url": ""
+    }
+  },
+  {
+    "task_id": 9002,
+    "intent": "Go to the contact page.",
+    "start_url": "__HOMEPAGE__/index.html",
+    "sites": ["homepage"],
+    "reference_length": 1,
+    "eval": {
+      "eval_types": ["url_match"],
+      "reference_answers": {},
+      "reference_url": "__HOMEPAGE__/contact.html",
+      "url_note": "GOLD in PRED"
+    }
+  }
+]
