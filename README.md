@@ -422,6 +422,28 @@ doesn't contain.)
 move — what moves them is task type and **scoring methodology**. That's the
 project's thesis, now triangulated from four independent angles.
 
+### Scaled run — tighter CIs (best-powered numbers)
+
+Larger samples for narrower intervals (full 812-task WebArena is infeasible
+under amd64 emulation — one task hit ~2.4 h — so "scale" here is a bigger
+sample, not the whole suite):
+
+| benchmark | sample | success rate (95% CI) | dominant failure |
+|---|---|---|---|
+| Mind2Web (realistic, WebJudge) | 15 tasks × 3 seeds = 45 attempts | **1.00 (0.92–1.00)** | none — 0 failures, all seeds |
+| WebArena (sandbox, exact-match) | 24 diverse shopping tasks | **0.44 (0.26–0.63)** | `premature_done` (13 of 14) |
+
+The CIs now **don't overlap** — a real, separable gap. But read it correctly:
+**it's a measurement gap, not a venue gap.** On the sandbox, 13 of 14 failures
+are `premature_done` — the agent *finished* with a sensible answer that the
+exact-match scorer rejected (the curly-apostrophe / "6 verbatim sentences" class
+of rejection). On the realistic side, the lenient WebJudge passes everything (a
+100% that is itself suspect). So the same agent looks ~100% or ~44% depending on
+**how you score**, not where it runs — which is exactly the "headline numbers are
+inflated by weak LLM-as-judge scoring" thesis, now shown with non-overlapping
+intervals and a failure-mode breakdown. The honest single-sentence takeaway:
+*scoring methodology, not the benchmark venue, is the dominant driver of the gap.*
+
 ---
 
 ## Measurement rigor
