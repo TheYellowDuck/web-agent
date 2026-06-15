@@ -1,17 +1,48 @@
 # Eval-Driven Autonomous Web Agent
 
-> A from-scratch LLM web agent, **benchmarked honestly**. It does well on a
-> deterministic sandbox (WebArena) and visibly struggles on realistic open-web
-> tasks (Online-Mind2Web) — and the project's headline result is *that gap*,
-> measured on this agent, plus the engineering (reflection / self-correction)
-> that narrows it.
+> A from-scratch LLM web agent, **benchmarked honestly** — built to measure where
+> a basic-but-real agent actually lands, and to show how much of any headline
+> number comes from *scoring methodology and task curation* rather than capability.
 
-The scaffold is table stakes. The **measurement** is the signal: a reflection
-ablation, an observation-modality ablation, a cost-vs-success Pareto across
-model tiers, and the sandbox-vs-realistic success-rate collapse — all computed
-on this agent, with fully reproducible JSONL trajectories.
+The scaffold is table stakes; the **measurement** is the signal. Across a
+reflection ablation, a model-tier cost/success sweep, an observation-modality
+ablation, and a difficulty-matched sandbox-vs-realistic comparison, the recurring
+result is that *how you score and which tasks you pick* move the number more than
+the agent does — all on this agent, with fully reproducible JSONL trajectories.
 
-See [plan.md](plan.md) for the full thesis and rationale.
+![the agent solving a task](results/reports/demo.gif)
+
+*Claude Sonnet 4.6 driving the agent on a live Wikipedia task — search → navigate
+→ extract → answer. (Frames from a real captured run.)*
+
+See [plan.md](plan.md) for the original thesis.
+
+---
+
+## Results at a glance
+
+- **Capability ≈ 2023–24 baseline, stated honestly.** On a curated WebArena
+  shopping subset the agent scores ~0.43 exact-match; a *fair full-suite* number
+  would be mid-teens–30% (vs production ~60%, SOTA 71.6%, human ~78%). A solid
+  from-scratch scaffold, not a production agent — and the writeup says exactly that.
+- **The headline moved 0.43 → 0.57 → 0.61 — and two of three steps were
+  measurement/mechanism, not raw capability:** **+14pt** from implementing
+  WebArena's own `fuzzy_match` LLM scoring (I'd been under-counting "N/A"
+  answers), **+4pt** from the one research-identified lever (an AgentOccam-style
+  `note` scratchpad that cracked a 14-item extraction task).
+- **Difficulty-matched sandbox-vs-realistic:** the apparent gap is driven by
+  *scoring* (strict exact-match vs lenient LLM judge), not venue — the same agent
+  reads ~0.6 or ~1.0 depending on how you score it.
+- **Reflection ablation:** helps hard tasks by killing "never-finishes" loops —
+  but a cheaper budget/commit fix captured most of it; on saturated slices ON ≈ OFF.
+- **Model sweep (cost-vs-success):** Sonnet dominates — top success at the
+  *lowest* cost; Opus matches at ~2×; Haiku is a false economy (worse *and*
+  pricier). Bigger ≠ better.
+- **Set-of-Marks / vision:** no success gain on text-heavy tasks (a deliberately-
+  reported negative result); **a real sandbox found three agent bugs** the
+  synthetic tests missed (all fixed).
+
+Full blow-by-blow numbers, CIs, and every caveat are in **[Measured results](#measured-results-so-far)** below.
 
 ---
 
