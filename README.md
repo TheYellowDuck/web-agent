@@ -515,13 +515,37 @@ residual capability failures. Measured on the 4 hardest residual tasks:
   item over 17 steps) but couldn't enumerate all 6–14 required items; one drifted
   down (noise). Binary SR on these 4 stayed 0/4.
 
-The consistent pattern across *every* capability lever (commit-fix, pagination,
+The pattern across the prompt/observation levers (commit-fix, pagination,
 Set-of-Marks, planning): the agent's **behaviour** improves — it navigates more,
 gathers more, stays grounded (0.99) — but the binary WebArena number barely moves,
 because the residual failures are (a) genuinely hard exhaustive enumeration and
-(b) exact-match scoring strictness. The one thing that moved the *number* was
-fixing the eval (fuzzy_match). That convergence — capability up, score flat,
-measurement dominant — is the project's thesis, earned the hard way.
+(b) exact-match scoring strictness.
+
+### The `note` scratchpad — the lever that finally worked (research-driven)
+
+Rather than guess at a sixth tweak, I **researched** what moves WebArena:
+AgentOccam reports **+26.6 absolute points** from observation/action-space
+refinement (vs tree search's compute-heavy +28% *relative*, a poor fit for our
+emulation). The one mechanism we lacked was AgentOccam's `note` action — a
+scratchpad to record items as they're found instead of holding the whole list in
+working memory. Added it; measured on the three exhaustive-list failures:
+
+| task | before (planning) | with `note` | result |
+|---|:---:|:---:|---|
+| 279 (list Sony headphones) | 8/14 | **14/14** | ✅ **PASS** (6 notes, accumulated across pages) |
+| 387 (list reviewers) | 3/6 | 4/6 | improved, still short |
+| 21 (list reviewers) | 3/5 | 3/5 | unchanged (committed early — only 1 note) |
+
+**This is the first capability lever to actually flip a hard exhaustive-extraction
+task** (279: fail → pass, full coverage), with a clear mechanism. It's modest
+(1/3) and surfaced a real tension — "be decisive / commit early" can fight
+"note everything / paginate fully" (task 21) — but it's a genuine, literature-
+backed capability gain, not a scoring artifact.
+
+The overall convergence still holds: across all levers, the biggest *score* move
+came from fixing the eval (fuzzy_match, +14pt), and the biggest *capability* move
+came from the one research-identified mechanism (`note`). Capability up, score
+mostly flat, measurement dominant — the project's thesis, earned the hard way.
 
 ---
 
