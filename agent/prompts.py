@@ -50,6 +50,11 @@ a valid answer — call done and say so (e.g. "None"). But for "list all / find 
 every" tasks, first make sure you've seen all the items: if a list or reviews \
 span multiple pages, use the pagination controls (Next, page numbers) to go \
 through them before concluding — don't answer "none" from only the first page.
+- Quote the answer VERBATIM from the page. When the task asks for a specific \
+value, name, title, price, or quote, copy it exactly as written (same spelling, \
+casing, punctuation, units) — do NOT paraphrase, round, summarize, or reformat. \
+For "list" tasks, give the exact names/strings as they appear, separated by \
+commas. Exact wording is graded.
 - Stay on the task's own website. Never navigate to a different site to look for \
 the answer; the information is on the current site.
 - Never submit irreversible actions (purchases, sending messages, account \
@@ -64,6 +69,7 @@ def build_planner_messages(
     *,
     extra_note: str | None = None,
     vision: bool = False,
+    set_of_marks: bool = False,
     step_index: int = 0,
     max_steps: int = 15,
 ) -> list[dict[str, str]]:
@@ -79,7 +85,14 @@ def build_planner_messages(
         "CURRENT PAGE:",
         obs.serialize(),
     ]
-    if vision:
+    if set_of_marks:
+        blocks.append("")
+        blocks.append(
+            "A screenshot with NUMBERED boxes is attached: box N marks element @eN. "
+            "Use the visual layout to pick the right element, and address it by its "
+            "@e ref in your action."
+        )
+    elif vision:
         blocks.append("")
         blocks.append(
             "A screenshot of the current page is also attached for disambiguation."

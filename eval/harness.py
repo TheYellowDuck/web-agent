@@ -310,6 +310,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--provider", default=None, help="force a provider adapter")
     parser.add_argument("--reflect", action="store_true", help="enable reflection")
     parser.add_argument("--vision", action="store_true", help="enable vision fallback")
+    parser.add_argument("--set-of-marks", action="store_true",
+                        help="attach a numbered-box screenshot every step (multimodal)")
     parser.add_argument("--max-steps", type=int, default=15)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--headed", action="store_true", help="run with a visible browser")
@@ -336,6 +338,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     config = AgentConfig(
         reflect=args.reflect,
         vision_fallback=args.vision,
+        set_of_marks=args.set_of_marks,
         max_steps=args.max_steps,
         confirm_irreversible=args.guardrails,
         capture_screenshots=capture,

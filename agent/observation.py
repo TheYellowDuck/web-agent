@@ -94,7 +94,12 @@ _SNAPSHOT_JS = r"""
     i += 1;
     const ref = 'e' + i;
     el.setAttribute('data-webagent-ref', ref);
-    const rec = { ref: '@' + ref, role, name, tag: el.tagName.toLowerCase() };
+    const r = el.getBoundingClientRect();
+    const rec = {
+      ref: '@' + ref, role, name, tag: el.tagName.toLowerCase(),
+      rect: {x: Math.round(r.x), y: Math.round(r.y),
+             w: Math.round(r.width), h: Math.round(r.height)},
+    };
     if (isInput) {
       rec.input_type = el.type || '';
       if (el.value) rec.value = String(el.value).slice(0, 80);

@@ -46,6 +46,9 @@ _IRREVERSIBLE = re.compile(
 class AgentConfig:
     reflect: bool = False
     vision_fallback: bool = False
+    # Set-of-Marks: attach a screenshot with numbered boxes (matching @e refs)
+    # every step — first-class multimodal grounding, not just a fallback.
+    set_of_marks: bool = False
     max_steps: int = 15
     max_consecutive_failures: int = 3
     loop_window: int = 4
@@ -170,15 +173,24 @@ class Agent:
                 )
                 stale_scrolls = 0
 
-            use_vision = self._should_use_vision(obs, memory)
-            images = [browser.screenshot()] if use_vision else None
+            som = self.config.set_of_marks
+            use_vision = som or self._should_use_vision(obs, memory)
+            images = None
+            if use_vision:
+                shot_b64 = browser.screenshot()
+                if som:
+                    from agent.marks import render_marked_screenshot
+                    images = [render_marked_screenshot(
+                        base64.b64decode(shot_b64), obs.elements)]
+                else:
+                    images = [shot_b64]
 
             # --- plan ---
             plan_resp = self.llm.complete(
                 system=SYSTEM_PROMPT,
                 messages=build_planner_messages(
                     task.goal, obs, memory, extra_note=pending_note, vision=use_vision,
-                    step_index=i, max_steps=max_steps,
+                    set_of_marks=som, step_index=i, max_steps=max_steps,
                 ),
                 json_schema=A.action_output_schema(),
                 images_b64=images,
