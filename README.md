@@ -503,6 +503,26 @@ order-history tasks — are genuine capability gaps, no cheap fix.)
 > therefore a **lower bound**; pass `--judge-model frontier` to score `fuzzy_match`
 > tasks as WebArena intends.
 
+### Planning + completeness gate (capability lever, measured)
+
+A lightweight planning scaffold (`--planning`: a persisted plan/checklist + a gate
+that bounces a list answer while pages remain unvisited) was added to attack the
+residual capability failures. Measured on the 4 hardest residual tasks:
+- It **did help the multi-step account task** — the agent navigated order history
+  and found the picture-frame size — but answered `16*24` vs the gold `16x24`, so
+  exact-match rejected it (the `×`-vs-`*` version of the apostrophe story).
+- The completeness gate made list tasks **paginate further** (one gathered +1
+  item over 17 steps) but couldn't enumerate all 6–14 required items; one drifted
+  down (noise). Binary SR on these 4 stayed 0/4.
+
+The consistent pattern across *every* capability lever (commit-fix, pagination,
+Set-of-Marks, planning): the agent's **behaviour** improves — it navigates more,
+gathers more, stays grounded (0.99) — but the binary WebArena number barely moves,
+because the residual failures are (a) genuinely hard exhaustive enumeration and
+(b) exact-match scoring strictness. The one thing that moved the *number* was
+fixing the eval (fuzzy_match). That convergence — capability up, score flat,
+measurement dominant — is the project's thesis, earned the hard way.
+
 ---
 
 ## Measurement rigor
