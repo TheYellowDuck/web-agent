@@ -32,7 +32,7 @@ def component_checks() -> None:
 
     # Action schema + parse + validate against a fake observation.
     schema = A.action_output_schema()
-    check("action schema has thought+action", set(schema["properties"]) == {"thought", "action"})
+    check("action schema has thought+action", {"thought", "action"} <= set(schema["properties"]))
 
     obs = Observation(
         url="https://example.com",

@@ -30,6 +30,13 @@ def action_output_schema() -> dict[str, Any]:
                 "type": "string",
                 "description": "Brief reasoning for the chosen action.",
             },
+            "plan": {
+                "type": "string",
+                "description": (
+                    "Optional running checklist for multi-step or list tasks: the "
+                    "subgoals and which are done/remaining. Carried to the next step."
+                ),
+            },
             "action": {
                 "type": "object",
                 "properties": {

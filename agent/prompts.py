@@ -70,6 +70,8 @@ def build_planner_messages(
     extra_note: str | None = None,
     vision: bool = False,
     set_of_marks: bool = False,
+    planning: bool = False,
+    plan: str = "",
     step_index: int = 0,
     max_steps: int = 15,
 ) -> list[dict[str, str]]:
@@ -78,6 +80,11 @@ def build_planner_messages(
     blocks = [
         f"GOAL: {goal}",
         f"STEP: {step_index + 1} of {max_steps} ({remaining} step(s) left)",
+    ]
+    if planning:
+        blocks += ["", "PLAN SO FAR:",
+                   plan.strip() or "(none yet — create one in the 'plan' field)"]
+    blocks += [
         "",
         "HISTORY:",
         memory.render(),
@@ -110,9 +117,17 @@ def build_planner_messages(
         blocks.append("")
         blocks.append(f"NOTE: {extra_note}")
     blocks.append("")
-    blocks.append(
-        "Respond with JSON: {\"thought\": str, \"action\": {\"type\": ..., ...}}."
-    )
+    if planning:
+        blocks.append(
+            "Maintain your checklist in the 'plan' field every step (mark subgoals "
+            "done, keep what remains). For 'list all' tasks, the plan must include "
+            "visiting every page/section before answering. Respond with JSON: "
+            "{\"thought\": str, \"plan\": str, \"action\": {\"type\": ..., ...}}."
+        )
+    else:
+        blocks.append(
+            "Respond with JSON: {\"thought\": str, \"action\": {\"type\": ..., ...}}."
+        )
     return [{"role": "user", "content": "\n".join(blocks)}]
 
 

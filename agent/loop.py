@@ -73,6 +73,11 @@ class AgentConfig:
     # accepting `done`. The grounding score is always recorded either way.
     verify_before_done: bool = False
     grounding_threshold: float = 0.5
+    # Lightweight planning: the agent maintains a running checklist (persisted
+    # across steps), and for "list all" answers we bounce once if pages remain
+    # unvisited — targets multi-step + incomplete-extraction failures.
+    planning: bool = False
+    check_completeness: bool = False
 
     def as_dict(self) -> dict:
         return {
@@ -139,6 +144,8 @@ class Agent:
     ) -> None:
         pending_note: Optional[str] = None
         verified_once = False
+        completeness_checked = False
+        current_plan = ""
         seen_text: list[str] = []  # everything the agent has actually observed
         seen_lines: set[str] = set()
         stale_scrolls = 0
@@ -190,7 +197,8 @@ class Agent:
                 system=SYSTEM_PROMPT,
                 messages=build_planner_messages(
                     task.goal, obs, memory, extra_note=pending_note, vision=use_vision,
-                    set_of_marks=som, step_index=i, max_steps=max_steps,
+                    set_of_marks=som, planning=self.config.planning, plan=current_plan,
+                    step_index=i, max_steps=max_steps,
                 ),
                 json_schema=A.action_output_schema(),
                 images_b64=images,
@@ -198,6 +206,8 @@ class Agent:
             pending_note = None
             payload = plan_resp.parsed or {}
             thought = str(payload.get("thought", "")).strip()
+            if self.config.planning and payload.get("plan"):
+                current_plan = str(payload["plan"]).strip()
 
             step = Step(
                 index=i,
@@ -261,6 +271,23 @@ class Agent:
             # --- terminal action ---
             if action.type == "done":
                 step.action_ok = True
+                # Completeness gate: don't accept a list answer while more pages
+                # of the list remain unvisited — bounce once to gather them.
+                if (
+                    self.config.check_completeness
+                    and not completeness_checked
+                    and obs.pagination.get("next_ref")
+                    and _looks_like_list(action.answer)
+                ):
+                    completeness_checked = True
+                    step.reflection_note = "list answer with unvisited pages; gathering more"
+                    pending_note = (
+                        f"Your answer is a list, but more pages exist (use "
+                        f"{obs.pagination['next_ref']}). Visit the remaining pages and "
+                        "add every matching item before finishing."
+                    )
+                    self._commit(step, traj, memory, action, browser=browser)
+                    continue
                 grounding = _answer_grounding(action.answer or "", " ".join(seen_text))
                 # Optional anti-hallucination gate: bounce an ungrounded answer
                 # back once to verify on the page before accepting it.
@@ -407,6 +434,19 @@ def _now() -> float:
 
 def _safe_name(s: str) -> str:
     return re.sub(r"[^a-zA-Z0-9._-]+", "_", s)[:80] or "task"
+
+
+def _looks_like_list(answer: Optional[str]) -> bool:
+    """Heuristic: does the answer enumerate multiple items (so coverage matters)?"""
+    a = (answer or "").strip()
+    if not a:
+        return False
+    # comma-separated (≥2), or multiple numbered/bulleted lines.
+    if a.count(",") >= 1 and len(a) > 8:
+        return True
+    lines = [ln for ln in a.splitlines() if ln.strip()]
+    bulletish = sum(1 for ln in lines if re.match(r"\s*(\d+[.)]|[-*•])", ln))
+    return bulletish >= 2
 
 
 def _origin(url: str) -> str:

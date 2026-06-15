@@ -22,7 +22,8 @@ def obs():
 
 def test_schema_shape():
     s = A.action_output_schema()
-    assert set(s["properties"]) == {"thought", "action"}
+    assert {"thought", "action"} <= set(s["properties"])  # plan is optional/extra
+    assert s["required"] == ["thought", "action"]
     assert s["properties"]["action"]["required"] == ["type"]
 
 

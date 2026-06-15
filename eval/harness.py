@@ -312,6 +312,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--vision", action="store_true", help="enable vision fallback")
     parser.add_argument("--set-of-marks", action="store_true",
                         help="attach a numbered-box screenshot every step (multimodal)")
+    parser.add_argument("--planning", action="store_true",
+                        help="maintain a running plan + completeness gate for list tasks")
     parser.add_argument("--max-steps", type=int, default=15)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--headed", action="store_true", help="run with a visible browser")
@@ -344,6 +346,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         capture_screenshots=capture,
         verify_before_done=args.verify_answers,
         confine_to_site=(args.tasks == "webarena"),
+        planning=args.planning,
+        check_completeness=args.planning,
     )
 
     tasks = load_tasks(args.tasks, limit=args.limit)
