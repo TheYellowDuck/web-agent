@@ -35,14 +35,17 @@ def score(
 
     refs = spec.get("reference_answers", {}) or {}
 
-    if "string_match" in eval_types:
-        ok, d = _string_match(spec, traj)
-        verdicts.append(ok)
-        results["string_match"] = d
-    if "fuzzy_match" in eval_types or "fuzzy_match" in refs:
+    # String family: WebArena puts a fuzzy_match reference under eval_types
+    # ["string_match"], and fuzzy_match REPLACES exact/must_include (it's the
+    # task's reference type) — don't run both and AND them together.
+    if "fuzzy_match" in refs or "fuzzy_match" in eval_types:
         ok, d = _fuzzy_match(spec, traj, judge_llm)
         verdicts.append(ok)
         results["fuzzy_match"] = d
+    elif "string_match" in eval_types or "exact_match" in refs or "must_include" in refs:
+        ok, d = _string_match(spec, traj)
+        verdicts.append(ok)
+        results["string_match"] = d
     if "url_match" in eval_types:
         ok, d = _url_match(spec, traj)
         verdicts.append(ok)
@@ -105,6 +108,10 @@ def _fuzzy_match(
     if not targets:
         return None, {"mode": "fuzzy_match", "note": "no fuzzy targets"}
 
+    # WebArena uses "N/A" as the reference when the correct response is that the
+    # requested information doesn't exist / the task is unachievable.
+    is_na = len(targets) == 1 and _norm(targets[0]) in ("n/a", "na", "none")
+
     if judge_llm is None:
         # Degraded deterministic fallback so we still return *something* honest.
         missing = [t for t in targets if _norm(t) not in _norm(answer)]
@@ -118,13 +125,19 @@ def _fuzzy_match(
         "properties": {"satisfied": {"type": "boolean"}, "why": {"type": "string"}},
         "required": ["satisfied"],
     }
+    if is_na:
+        instruction = (
+            "The correct answer is that the requested information does not exist / "
+            "is not available / there is none (N/A). Does the answer below correctly "
+            "convey that (e.g. 'no reviews', 'no phone number listed', 'none found')?"
+        )
+    else:
+        instruction = f"Required meanings (all must be conveyed): {targets}\nDoes the answer satisfy ALL of them?"
     msg = [{
         "role": "user",
         "content": (
-            f"Answer: {answer!r}\n"
-            f"Required meanings (all must be conveyed): {targets}\n"
-            'Does the answer satisfy ALL required meanings? Respond JSON '
-            '{"satisfied": bool, "why": str}.'
+            f"Answer: {answer!r}\n\n{instruction}\n"
+            'Respond JSON {"satisfied": bool, "why": str}.'
         ),
     }]
     resp = judge_llm.complete(

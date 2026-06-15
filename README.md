@@ -475,6 +475,34 @@ observation modality or phrasing — consistent with everything above. (SoM is
 implemented and a `--set-of-marks` flag; it would likely earn its keep on the
 WebArena *map* domain or computer-use-style tasks, which are future work.)
 
+### What *did* move the number — fixing my own measurement (0.43 → 0.57)
+
+Diagnosing the 13 sandbox failures (rather than guessing at another lever) found
+that **the harness was under-counting the agent** — a measurement bug, not a
+capability one:
+- WebArena scores some tasks with `fuzzy_match` (an LLM judge against the gold
+  answer; `"N/A"` means "the info doesn't exist"). I'd been running WebArena
+  **without a judge**, so those degraded to substring matching.
+- And a scorer bug ran the empty `string_match` check *alongside* fuzzy and
+  AND-combined them, so a correct fuzzy answer could never pass.
+
+Fixing both (fuzzy_match replaces string_match per WebArena's spec; `"N/A"`
+judged semantically) and scoring with an Opus judge — **WebArena's own intended
+method, not lenience I invented** — lifted the 24-task SR from **0.43 → 0.57
+(CI 0.37–0.74)**. Three "failures" were the agent *correctly* answering "no
+reviews" / "no phone number listed," which exact-substring scoring had rejected.
+
+The point lands reflexively: this project is about honest measurement, and the
+biggest legitimate gain came from finding that **my own eval was mis-measuring**
+— faithfully implementing the benchmark's scoring, not changing the agent, moved
+the number. (Caveat: re-scored offline from saved trajectories with `--judge-model
+frontier`; the remaining failures — incomplete multi-item extraction, account /
+order-history tasks — are genuine capability gaps, no cheap fix.)
+
+> Earlier WebArena figures in this README are exact-match-only (no judge) and are
+> therefore a **lower bound**; pass `--judge-model frontier` to score `fuzzy_match`
+> tasks as WebArena intends.
+
 ---
 
 ## Measurement rigor

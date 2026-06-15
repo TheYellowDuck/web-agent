@@ -72,6 +72,18 @@ def test_wa_fuzzy_degraded_without_judge():
     assert ok is True and detail["fuzzy_match"]["degraded"] is True
 
 
+def test_wa_fuzzy_reference_not_dragged_down_by_string_match():
+    # WebArena lists eval_types ["string_match"] with a fuzzy_match reference.
+    # Fuzzy must REPLACE string_match (not be AND-ed with an empty string check),
+    # else a correct fuzzy answer can never pass. (Regression test.)
+    task = Task(task_id="t", goal="g", start_url="x", benchmark="webarena",
+                eval_spec={"eval_types": ["string_match"],
+                           "reference_answers": {"fuzzy_match": ["sunny"]}})
+    ok, detail = wa.score(task, _traj(answer="the weather is sunny"))
+    assert ok is True
+    assert "string_match" not in detail  # only fuzzy ran
+
+
 def test_wa_program_html_unscored_without_content():
     # No captured page content -> must be unscored (None), never a silent verdict.
     task = Task(task_id="t", goal="g", start_url="x", benchmark="webarena",
