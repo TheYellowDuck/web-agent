@@ -69,6 +69,13 @@ def test_navigate_requires_target(obs):
     assert A.validate_action(Action(type="navigate", target="back"), obs) is None
 
 
+def test_note_requires_text(obs):
+    assert A.validate_action(Action(type="note"), obs)            # empty -> error
+    assert A.validate_action(Action(type="note", text="  "), obs) # whitespace -> error
+    assert A.validate_action(Action(type="note", text="found: Catso"), obs) is None
+    assert "note" in A.action_output_schema()["properties"]["action"]["properties"]["type"]["enum"]
+
+
 def test_action_describe_roundtrip():
     a = Action(type="type", ref="@e2", text="hello")
     assert "type(" in a.describe() and "hello" in a.describe()

@@ -268,6 +268,15 @@ class Agent:
                 pending_note = "That action is irreversible and was blocked."
                 continue
 
+            # --- scratchpad note (no page interaction) ---
+            if action.type == "note":
+                memory.notes.append((action.text or "").strip())
+                step.action_ok = True
+                self._commit(step, traj, memory, action, browser=browser)
+                if self._should_abort(memory, traj):
+                    return
+                continue
+
             # --- terminal action ---
             if action.type == "done":
                 step.action_ok = True

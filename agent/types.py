@@ -23,6 +23,7 @@ ActionType = Literal[
     "scroll",
     "navigate",
     "wait",
+    "note",
     "done",
 ]
 
@@ -33,6 +34,7 @@ ALL_ACTION_TYPES: tuple[str, ...] = (
     "scroll",
     "navigate",
     "wait",
+    "note",
     "done",
 )
 

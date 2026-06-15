@@ -28,6 +28,13 @@ class Memory:
     recent_window: int = 6
     entries: list[MemoryEntry] = field(default_factory=list)
     current_url: str = ""
+    notes: list[str] = field(default_factory=list)  # scratchpad (the 'note' action)
+
+    def render_notes(self) -> str:
+        if not self.notes:
+            return ""
+        lines = [f"  {i + 1}. {n}" for i, n in enumerate(self.notes)]
+        return "\n".join(lines)
 
     def record(
         self,

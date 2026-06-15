@@ -117,6 +117,7 @@ class BrowserSession:
             "scroll": self._scroll,
             "navigate": self._navigate,
             "wait": self._wait,
+            "note": lambda a: None,    # scratchpad only — no page interaction
             "done": lambda a: None,
         }.get(action.type)
         if handler is None:

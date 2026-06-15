@@ -45,7 +45,10 @@ def action_output_schema() -> dict[str, Any]:
                         "type": "string",
                         "description": "Element ref like '@e12' (click/type/select).",
                     },
-                    "text": {"type": "string", "description": "Text to type."},
+                    "text": {
+                        "type": "string",
+                        "description": "Text to type, or the item/finding to record for 'note'.",
+                    },
                     "option": {"type": "string", "description": "Option for select."},
                     "direction": {
                         "type": "string",
@@ -112,6 +115,8 @@ def validate_action(action: Action, obs: Observation) -> Optional[str]:
 
     if action.type == "type" and action.text is None:
         return "'type' requires 'text'"
+    if action.type == "note" and not (action.text or "").strip():
+        return "'note' requires non-empty 'text'"
     if action.type == "select" and not action.option:
         return "'select' requires 'option'"
     if action.type == "scroll" and action.direction not in (

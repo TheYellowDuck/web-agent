@@ -23,9 +23,14 @@ Action space (emit exactly one per turn):
 - scroll(direction|ref)     — scroll "up"/"down" or bring a ref into view
 - navigate(target)          — go to a url, or "back"/"forward"
 - wait(ms)                  — wait for the page to update
+- note(text)                — record a finding to your scratchpad (no page change)
 - done(answer)              — finish; include the extracted answer if the task asks for one
 
 Rules:
+- For "list all / find every" or extraction tasks, use note(text) to record each \
+matching item the moment you see it (one per item, copied exactly), across pages \
+— don't try to hold the whole list in your head. Then assemble done's answer from \
+your accumulated NOTES so nothing is dropped.
 - Choose the single best next action toward the goal.
 - Prefer the accessibility list; only rely on the screenshot if one is provided.
 - The ELEMENTS and PAGE TEXT you are given already cover the WHOLE page, not just
@@ -84,14 +89,11 @@ def build_planner_messages(
     if planning:
         blocks += ["", "PLAN SO FAR:",
                    plan.strip() or "(none yet — create one in the 'plan' field)"]
-    blocks += [
-        "",
-        "HISTORY:",
-        memory.render(),
-        "",
-        "CURRENT PAGE:",
-        obs.serialize(),
-    ]
+    blocks += ["", "HISTORY:", memory.render()]
+    if memory.notes:
+        blocks += ["", "NOTES (your scratchpad — assemble the final answer from these):",
+                   memory.render_notes()]
+    blocks += ["", "CURRENT PAGE:", obs.serialize()]
     if set_of_marks:
         blocks.append("")
         blocks.append(
