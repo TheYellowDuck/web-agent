@@ -69,6 +69,13 @@ def test_hallucinated_action():
     assert ft.classify(r) == "hallucinated_action"
 
 
+def test_connection_error_not_llm_error():
+    # Site/infra unreachable must be flagged distinctly, not as an agent failure.
+    r = _row("a", success=False, status="error",
+             err="Error: Page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:7770/")
+    assert ft.classify(r) == "connection_error"
+
+
 def test_max_steps():
     assert ft.classify(_row("a", success=False, status="budget_exceeded", steps=15)) \
         == "max_steps"

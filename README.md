@@ -444,6 +444,37 @@ inflated by weak LLM-as-judge scoring" thesis, now shown with non-overlapping
 intervals and a failure-mode breakdown. The honest single-sentence takeaway:
 *scoring methodology, not the benchmark venue, is the dominant driver of the gap.*
 
+### Capability levers we tried — and an honest null
+
+Two production-style upgrades, measured fairly on the 24-task WebArena set
+(Sonnet, reflect ON), against the 0.43 baseline:
+
+| config | success rate | mean cost/task | effect |
+|---|:---:|:---:|---|
+| baseline | 0.43 (10/23) | $0.106 | — |
+| + verbatim-extraction prompting | **0.43** (10/23) | $0.109 | no change |
+| + verbatim + **Set-of-Marks** (numbered-box screenshots) | **0.43** (10/23) | $0.159 | no change, +50% cost |
+
+Neither moved the number. The same 10 tasks pass in all three; the
+`premature_done` failures stay failures. Why:
+- **Verbatim prompting** addresses *formatting*, but these failures aren't
+  formatting — they're wrong/incomplete answers, or the exact-match scorer
+  demanding *all* of (e.g.) 6 verbatim sentences, which "copy it exactly" can't
+  satisfy when the agent summarizes.
+- **Set-of-Marks** is the standard multimodal lever, but on this *text-heavy
+  shopping* distribution the a11y tree + extracted text already convey what's
+  needed; visual layout adds no decisive signal (its value is on spatial/visual
+  tasks — maps, canvases, ambiguous layouts — which this set doesn't contain). It
+  *did* raise answer-grounding (0.74 → 0.83) and fired every step, so it changed
+  behaviour — just not enough to flip exact-match outcomes, at +50% cost.
+
+This is a deliberately-reported **negative result**: I hypothesized Set-of-Marks
+would be the biggest lever; on this task distribution it wasn't. The bottleneck
+here is genuine hard-extraction capability + exact-match strictness, not
+observation modality or phrasing — consistent with everything above. (SoM is
+implemented and a `--set-of-marks` flag; it would likely earn its keep on the
+WebArena *map* domain or computer-use-style tasks, which are future work.)
+
 ---
 
 ## Measurement rigor
@@ -514,8 +545,9 @@ those records, so any run can be **re-scored and re-charted entirely offline**
 - ✅ WebArena scorers (string / url / fuzzy / program_html, 3-valued) + Mind2Web WebJudge (text + screenshots)
 - ✅ Anti-hallucination: structural action validation + answer-grounding score + `--verify-answers` gate + grounded judge
 - ✅ WebArena prep: preflight checker + integration smoke (adapter verified against a local stand-in)
-- ✅ Robustness: site confinement (no off-site wander), pagination detection, answer-grounding gate, scorer punctuation-normalization
-- ✅ Offline local demo + smoke test + `echo` model + **pytest suite (49 tests)**
+- ✅ Robustness: site confinement, pagination detection, answer-grounding gate, scorer normalization, rate-limit retry, record-grouping
+- ✅ Multimodal: Set-of-Marks visual grounding (`--set-of-marks`) + verbatim prompting (measured; see results)
+- ✅ Offline local demo + smoke test + `echo` model + **pytest suite (59 tests)**
 - ✅ browser-use baseline adapter
 - ✅ First measured results recorded (reflection ablation on the realistic slice — see above)
 - ⬜ Stand up WebArena sites for the true sandbox-vs-realistic gap + demo GIF

@@ -32,6 +32,14 @@ def classify(traj: dict[str, Any]) -> str:
     if status == "error" and "consecutive failures" in err:
         # Why did it keep failing? Look at the dominant step error.
         return _dominant_step_failure(steps)
+    if status == "error" and (
+        "connection" in err or "net::" in err or "err_connection" in err
+        or "goto" in err or "dns" in err
+    ):
+        # Site/infra unreachable (e.g. the sandbox container is down) — an
+        # environment failure, not an agent failure. Flagged distinctly so these
+        # aren't mistaken for capability problems.
+        return "connection_error"
     if status == "error" and err:
         return "llm_error"
 
