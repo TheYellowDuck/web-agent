@@ -132,6 +132,54 @@ on a ref it actually saw, so hallucinated targets are caught before execution. T
 screenshot + vision modality is a **fallback** (fires when the a11y tree is
 empty/sparse or the agent is stuck) and how often it fires is a tracked metric.
 
+## Skills Demonstrated
+
+- ReAct agent loop — perceive → plan → act → reflect cycle with step-budgeted termination
+- Reflection / self-correction — ablatable post-action self-critique that feeds the next plan
+- LLM-as-judge evaluation — WebJudge-style scoring with final-screenshot grounding (Online-Mind2Web)
+- Accessibility-tree observation — stable `@e1` element refs stamped via injected JavaScript
+- Set-of-Marks visual grounding — numbered-box screenshots rendered with Pillow for multimodal action selection
+- Provider-agnostic LLM abstraction — adapter pattern over Anthropic, OpenAI, Gemini plus a LiteLLM universal adapter
+- Factory pattern — model-string → provider inference with graceful native-SDK fallback to LiteLLM
+- Structured outputs — JSON-schema-constrained generation with a strict-schema transform for Anthropic
+- Prompt caching — ephemeral `cache_control` on the frozen system prompt to cut multi-step cost
+- Typed action space with validation — schema-guided actions hard-validated against the live snapshot before execution
+- Browser automation — Playwright sync API (goto/click/type/select/scroll/screenshot, popup following, networkidle settle)
+- Deterministic benchmark scoring — WebArena string/url/fuzzy/program_html scorers with 3-valued logic
+- Statistical rigor — Wilson 95% confidence intervals and unbiased pass@k (HumanEval-style) aggregation
+- Significance testing — McNemar's paired test, two-proportion z-test, Fisher's exact, and Newcombe difference-of-proportions CIs (pure stdlib, no SciPy)
+- Failure taxonomy — automated classification of failed trajectories into named categories
+- Parallel evaluation — ProcessPoolExecutor worker pool (process-per-task for Playwright thread safety)
+- Data visualization — Matplotlib + pandas report charts (cost-vs-success Pareto, ablations, taxonomy)
+- Reproducible experiment logging — JSONL trajectories that re-score and re-chart fully offline
+- Rate-limit resilience — SDK exponential backoff plus task-level retry
+- Docker sandbox integration — self-hosted WebArena (Magento) bring-up with `storage_state` auth
+- Anti-hallucination engineering — answer-grounding scoring, verify-before-done gate, structural action validation, site confinement
+- Cost/token accounting — per-call tracking with a price table and model-tier sweeps
+- Test engineering — pytest suite (84 tests) driven by a scripted offline LLM client (no API key/network)
+
+## Tech Stack
+
+- Python 3.11+ — packaged via `pyproject.toml` (PEP 621), with optional-dependency extras
+- Playwright — headless Chromium browser control (sync API)
+- Anthropic Claude — native SDK; default model with frontier/mid/cheap tiers (Opus / Sonnet / Haiku)
+- OpenAI — native SDK adapter
+- Google Gemini — native SDK adapter (`google-genai`)
+- LiteLLM — universal adapter for any other provider (Mistral, Llama via Ollama, Bedrock, Groq, …)
+- pandas — run aggregation and summary tables
+- Matplotlib — report chart rendering
+- Pillow (PIL) — Set-of-Marks overlays and demo-GIF assembly
+- pytest — unit + integration test suite
+- Docker — self-hosted WebArena benchmark sites
+- WebArena — deterministic, ground-truth-scored sandbox benchmark
+- Online-Mind2Web — realistic live-web slice scored by an LLM judge
+- concurrent.futures (ProcessPoolExecutor) — parallel task execution
+- browser-use — external baseline adapter (comparison line only)
+
+## Demo & Links
+
+- https://github.com/TheYellowDuck/web-agent
+
 ## Measured results
 
 First real runs — agent **Claude Sonnet 4.6**, judge **Claude Opus 4.8**,
@@ -525,50 +573,6 @@ those records, so any run can be **re-scored and re-charted entirely offline**
 
 Not a scraper, not a CAPTCHA/anti-bot bypass, not a browser-use wrapper. No
 irreversible side effects without confirmation outside the sandbox.
-
-## Skills Demonstrated
-
-- ReAct agent loop — perceive → plan → act → reflect cycle with step-budgeted termination
-- Reflection / self-correction — ablatable post-action self-critique that feeds the next plan
-- LLM-as-judge evaluation — WebJudge-style scoring with final-screenshot grounding (Online-Mind2Web)
-- Accessibility-tree observation — stable `@e1` element refs stamped via injected JavaScript
-- Set-of-Marks visual grounding — numbered-box screenshots rendered with Pillow for multimodal action selection
-- Provider-agnostic LLM abstraction — adapter pattern over Anthropic, OpenAI, Gemini plus a LiteLLM universal adapter
-- Factory pattern — model-string → provider inference with graceful native-SDK fallback to LiteLLM
-- Structured outputs — JSON-schema-constrained generation with a strict-schema transform for Anthropic
-- Prompt caching — ephemeral `cache_control` on the frozen system prompt to cut multi-step cost
-- Typed action space with validation — schema-guided actions hard-validated against the live snapshot before execution
-- Browser automation — Playwright sync API (goto/click/type/select/scroll/screenshot, popup following, networkidle settle)
-- Deterministic benchmark scoring — WebArena string/url/fuzzy/program_html scorers with 3-valued logic
-- Statistical rigor — Wilson 95% confidence intervals and unbiased pass@k (HumanEval-style) aggregation
-- Significance testing — McNemar's paired test, two-proportion z-test, Fisher's exact, and Newcombe difference-of-proportions CIs (pure stdlib, no SciPy)
-- Failure taxonomy — automated classification of failed trajectories into named categories
-- Parallel evaluation — ProcessPoolExecutor worker pool (process-per-task for Playwright thread safety)
-- Data visualization — Matplotlib + pandas report charts (cost-vs-success Pareto, ablations, taxonomy)
-- Reproducible experiment logging — JSONL trajectories that re-score and re-chart fully offline
-- Rate-limit resilience — SDK exponential backoff plus task-level retry
-- Docker sandbox integration — self-hosted WebArena (Magento) bring-up with `storage_state` auth
-- Anti-hallucination engineering — answer-grounding scoring, verify-before-done gate, structural action validation, site confinement
-- Cost/token accounting — per-call tracking with a price table and model-tier sweeps
-- Test engineering — pytest suite (84 tests) driven by a scripted offline LLM client (no API key/network)
-
-## Tech Stack
-
-- Python 3.11+ — packaged via `pyproject.toml` (PEP 621), with optional-dependency extras
-- Playwright — headless Chromium browser control (sync API)
-- Anthropic Claude — native SDK; default model with frontier/mid/cheap tiers (Opus / Sonnet / Haiku)
-- OpenAI — native SDK adapter
-- Google Gemini — native SDK adapter (`google-genai`)
-- LiteLLM — universal adapter for any other provider (Mistral, Llama via Ollama, Bedrock, Groq, …)
-- pandas — run aggregation and summary tables
-- Matplotlib — report chart rendering
-- Pillow (PIL) — Set-of-Marks overlays and demo-GIF assembly
-- pytest — unit + integration test suite
-- Docker — self-hosted WebArena benchmark sites
-- WebArena — deterministic, ground-truth-scored sandbox benchmark
-- Online-Mind2Web — realistic live-web slice scored by an LLM judge
-- concurrent.futures (ProcessPoolExecutor) — parallel task execution
-- browser-use — external baseline adapter (comparison line only)
 
 ## Getting Started
 
