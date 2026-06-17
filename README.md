@@ -10,7 +10,7 @@ other model), and the harness reports **Wilson confidence intervals**, **pass@k*
 the signal is the **measurement** — quantifying how much of any headline web-agent
 number comes from *scoring methodology and task curation* rather than capability.
 
-![the agent solving a task](results/reports/demo.gif)
+<img width="720" height="694" alt="Image" src="https://github.com/user-attachments/assets/bbfd0539-0622-46f1-bfb7-87352a894d42" />
 
 *Claude Sonnet 4.6 driving the agent on a live Wikipedia task — search → navigate
 → extract → answer. (Frames from a real captured run.)*
