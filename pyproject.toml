@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Eval-driven autonomous web agent — built from scratch, benchmarked honestly."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = { text = "CC-BY-NC-4.0" }
 authors = [{ name = "George Zhang" }]
 
 # Core deps: a fresh `pip install` runs the agent against the default model

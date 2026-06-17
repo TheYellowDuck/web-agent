@@ -80,13 +80,12 @@ class AgentConfig:
     check_completeness: bool = False
 
     def as_dict(self) -> dict:
-        return {
-            "reflect": self.reflect,
-            "vision_fallback": self.vision_fallback,
-            "max_steps": self.max_steps,
-            "confirm_irreversible": self.confirm_irreversible,
-            "capture_screenshots": self.capture_screenshots,
-        }
+        # Full serialization so a saved trajectory records *every* lever that was
+        # active (set_of_marks / planning / verify_before_done / confine_to_site
+        # …) — otherwise a run isn't reproducible from its own log.
+        import dataclasses
+
+        return dataclasses.asdict(self)
 
 
 class Agent:

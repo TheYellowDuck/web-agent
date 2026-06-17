@@ -1,23 +1,39 @@
 # Eval-Driven Autonomous Web Agent
 
-> A from-scratch LLM web agent, **benchmarked honestly** — built to measure where
-> a basic-but-real agent actually lands, and to show how much of any headline
-> number comes from *scoring methodology and task curation* rather than capability.
-
-The scaffold is table stakes; the **measurement** is the signal. Across a
-reflection ablation, a model-tier cost/success sweep, an observation-modality
-ablation, and a difficulty-matched sandbox-vs-realistic comparison, the recurring
-result is that *how you score and which tasks you pick* move the number more than
-the agent does — all on this agent, with fully reproducible JSONL trajectories.
+An autonomous **LLM web agent** built from scratch — a **ReAct + reflection** loop
+that drives a real headless browser (**Playwright**) over an **accessibility-tree**
+observation layer — paired with an **honest evaluation harness** over **WebArena**
+and **Online-Mind2Web**. The LLM layer is **provider-agnostic** (native **Anthropic
+Claude / OpenAI / Gemini** adapters plus a **LiteLLM** universal adapter for any
+other model), and the harness reports **Wilson confidence intervals**, **pass@k**, a
+**failure taxonomy**, and **LLM-as-judge** scoring. The scaffold is table stakes;
+the signal is the **measurement** — quantifying how much of any headline web-agent
+number comes from *scoring methodology and task curation* rather than capability.
 
 ![the agent solving a task](results/reports/demo.gif)
 
 *Claude Sonnet 4.6 driving the agent on a live Wikipedia task — search → navigate
 → extract → answer. (Frames from a real captured run.)*
 
-See [plan.md](plan.md) for the original thesis.
+## Features
 
----
+- **From-scratch agent scaffold** — browser control, observation layer, a typed
+  action space, memory, and a ReAct loop; no agent-framework wrapper.
+- **Reflection as an ablatable toggle** — self-critique after each action, compared
+  ON vs OFF on identical tasks (the headline engineering contribution).
+- **Provider-agnostic LLM layer** — native Claude / OpenAI / Gemini adapters plus a
+  LiteLLM universal adapter for any other model; swapping models is a config change.
+- **Accessibility-tree observation** — stable `@e1` element refs, extracted static
+  text, and pagination detection, with an optional Set-of-Marks screenshot modality.
+- **Honest dual-benchmark harness** — deterministic WebArena scoring and an
+  Online-Mind2Web LLM-as-judge, with 3-valued logic that never silently passes the
+  unverifiable.
+- **Statistical reporting** — Wilson confidence intervals, pass@k, a failure
+  taxonomy, and Matplotlib/pandas charts, all from reproducible JSONL trajectories.
+- **Anti-hallucination defenses** — structural action validation, answer-grounding
+  scoring, a verify-before-done gate, and site confinement.
+- **Cost-aware** — per-call token/cost tracking, model-tier sweeps, and Anthropic
+  prompt caching.
 
 ## Results at a glance
 
@@ -42,25 +58,27 @@ See [plan.md](plan.md) for the original thesis.
   reported negative result); **a real sandbox found three agent bugs** the
   synthetic tests missed (all fixed).
 
-Full blow-by-blow numbers, CIs, and every caveat are in **[Measured results](#measured-results-so-far)** below.
+Full blow-by-blow numbers, CIs, and every caveat are in **[Measured results](#measured-results)** below.
 
----
+## How It Works
 
-## Why this design
+Every component is small and explainable: browser control, an accessibility-tree
+observation layer, a typed action space, a model-agnostic LLM client, and a ReAct +
+reflection loop. `agent/` never imports `eval/` — the agent doesn't know it's being
+benchmarked, which is what keeps the measurement honest and the agent reusable.
 
-- **Custom scaffold, not a wrapper.** Every component is small and explainable:
-  browser control, an accessibility-tree observation layer, a typed action
-  space, a model-agnostic LLM client, and a ReAct + reflection loop.
-- **Reflection is a toggle.** It's the headline engineering contribution, built
-  so it can be ablated ON vs OFF on the same tasks.
-- **Provider-agnostic by construction.** Swapping models is a config change.
-  Claude / OpenAI / Gemini have native adapters; *any other model* works through
-  the LiteLLM universal adapter (Mistral, Llama via Ollama, Bedrock, Groq, …).
+### Why this design
+
+- **Custom scaffold, not a wrapper.** Each stage of the loop is its own small,
+  testable module rather than a black-box framework call.
+- **Reflection is a toggle.** It's the headline engineering contribution, built so
+  it can be ablated ON vs OFF on the same tasks.
+- **Provider-agnostic by construction.** Claude / OpenAI / Gemini have native
+  adapters; *any other model* works through the LiteLLM universal adapter (Mistral,
+  Llama via Ollama, Bedrock, Groq, …) via the adapter + factory pattern.
 - **browser-use is a baseline**, never the agent — strictly a comparison line.
 
----
-
-## Architecture
+### Architecture
 
 ```text
 agent/
@@ -78,6 +96,7 @@ agent/
 eval/
   harness.py      runner: task -> trajectory -> score; CLI; JSONL; --runs/--workers
   metrics.py      success rate (by tier) + Wilson CIs + multi-run / pass@k
+  stats.py        significance tests (McNemar / z / Fisher) + effect-size CIs + pass@k
   failure_taxonomy.py  classify failed trajectories
   webarena/       URL templating + string/url/fuzzy/program_html scorers + loader
   mind2web/       frozen slice loader + WebJudge LLM-as-judge (text + screenshots)
@@ -108,202 +127,12 @@ loop until done or step budget exceeded:
     history.append(step)
 ```
 
-Observations are a numbered list of interactable elements; the model can only
-act on a ref it actually saw, so hallucinated targets are caught before
-execution. The screenshot + vision modality is a **fallback** (fires when the
-a11y tree is empty/sparse or the agent is stuck) and how often it fires is a
-tracked metric.
+Observations are a numbered list of interactable elements; the model can only act
+on a ref it actually saw, so hallucinated targets are caught before execution. The
+screenshot + vision modality is a **fallback** (fires when the a11y tree is
+empty/sparse or the agent is stuck) and how often it fires is a tracked metric.
 
----
-
-## Quickstart
-
-### 1. Install
-
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -e .                 # agent + harness + Claude, ready to run
-playwright install chromium
-```
-
-The base install runs the **default model (Claude) out of the box** — no extra
-LLM library to install. For other providers you don't *have* to install
-anything (the factory falls back to the universal LiteLLM adapter), but you can
-add a native SDK for first-class behaviour / accurate cost:
-
-```bash
-pip install -e ".[litellm]"      # universal adapter — enables any other model
-pip install -e ".[openai]"       # OpenAI (native)
-pip install -e ".[gemini]"       # Gemini (native)
-pip install -e ".[all]"          # everything, incl. browser-use baseline
-```
-
-Copy `.env.example` → `.env` and fill in the key(s) for whatever you run — the
-CLIs load `.env` automatically.
-
-### 2. Smoke test (no API key, no network)
-
-Verifies the whole pipeline — observation, action execution, scoring, metrics,
-taxonomy, and a scripted agent driving the bundled local site:
-
-```bash
-python -m scripts.smoke_test         # component + real-browser e2e
-pip install -e ".[dev]" && pytest    # unit tests for scorers/metrics/taxonomy
-```
-
-You can also exercise the runner with **no API key** using the offline `echo`
-model (it emits `done()` immediately) — handy for testing parallelism/logging:
-
-```bash
-python -m eval.harness --tasks local-demo --model echo --runs 2 --workers 2
-```
-
-### 3. Run the offline demo with a real model
-
-The local demo runs against a bundled static site over `file://` — no Docker,
-no live web — so you can see a real LLM drive the agent for cents:
-
-```bash
-python -m eval.harness --tasks local-demo --model claude-sonnet-4-6
-python -m eval.harness --tasks local-demo --model claude-sonnet-4-6 --reflect
-```
-
-Each run writes `results/trajectories/<run>.jsonl` and prints a metrics summary
-plus a failure-taxonomy breakdown.
-
----
-
-## Choosing a model — any LLM
-
-The model string selects the provider automatically:
-
-```bash
-# Native adapters
---model claude-opus-4-8            # Anthropic
---model gpt-4o-mini                # OpenAI
---model gemini-2.0-flash           # Google
-
-# Tier shortcuts (frontier / mid / cheap) — see agent/llm.py TIERS
---model frontier                   # -> claude-opus-4-8
---model mid                        # -> claude-sonnet-4-6  (default dev model)
---model cheap                      # -> claude-haiku-4-5
-
-# Anything else, via the LiteLLM universal adapter (vendor/model form)
---model mistral/mistral-large-latest
---model ollama/llama3              # local, no API key
---model groq/llama-3.1-70b-versatile
---model bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0
-```
-
-Cost and tokens are tracked per call and aggregated per task (native adapters
-use a built-in price table; LiteLLM computes its own cost). Per the plan, build
-against one capable-but-cheap model (`mid`) and only run the multi-model sweep
-once the harness is stable.
-
----
-
-## Benchmarks
-
-### WebArena (deterministic backbone)
-
-Self-hosted Dockerized sites, scored by ground-truth string/URL match — no LLM
-judge. The dataset and site images aren't bundled (large, and live upstream);
-this repo provides the adapter, a preflight check, and an integration smoke so
-the code path is verified before you bring up the heavy infrastructure.
-
-**0. Verify the adapter works (no Docker, no keys):**
-
-```bash
-python -m scripts.webarena_smoke      # templates __HOMEPAGE__ at the local site,
-                                       # runs + scores WebArena-schema tasks
-```
-
-**1. Stand up the sites.** Follow the upstream
-[WebArena](https://github.com/web-arena-x/webarena) instructions to run the
-self-hosted site containers (shopping, shopping-admin, reddit/forum, gitlab,
-wikipedia, map, homepage). They're distributed as Docker images upstream — the
-setup is multi-GB and machine-specific, so use their guide as the source of
-truth rather than copying commands here.
-
-**2. Wire the base URLs** in `.env` (`WA_SHOPPING`, `WA_GITLAB`, `WA_HOMEPAGE`, …
-— see `.env.example`), then preflight:
-
-```bash
-python -m scripts.check_webarena --tasks /path/to/webarena/test.raw.json
-# reports which sites are set + reachable and whether the task file is valid
-```
-
-**3. Run** (URLs and reference answers are templated against your base URLs by
-`eval/webarena/config.py`; tasks whose required site isn't configured are
-skipped, not 404'd):
-
-```bash
-export WEBARENA_TASKS=/path/to/webarena/test.raw.json
-python -m scripts.run_sweep --tasks webarena --models frontier mid cheap --ablate-reflection
-```
-
-The deterministic scorers cover `string_match` (exact / must_include),
-`url_match`, LLM `fuzzy_match`, and best-effort `program_html` — with 3-valued
-logic so anything unverifiable is marked *unscored*, never guessed.
-
-### Online-Mind2Web (realistic slice)
-
-A small, **frozen**, difficulty-stratified slice scored by a WebJudge-style
-LLM-as-judge. A starter slice ships in
-[`eval/tasks/mind2web_slice.json`](eval/tasks/mind2web_slice.json) — expand it
-to ~30 tasks (easy 1–5 / medium 6–10 / hard 11+).
-
-```bash
-# Use a strong, separate judge model for scoring
-python -m eval.harness --tasks mind2web --model mid --judge-model frontier --guardrails
-```
-
-`--guardrails` blocks irreversible actions (purchases, submits, logins) — on for
-the open-web slice, unnecessary for WebArena which is safe by construction.
-
-> Open-web tasks are flaky by nature; keep this slice small and frozen. That
-> flakiness, and the success-rate collapse vs. the sandbox, is the point.
-
----
-
-## Experiments → charts
-
-Run the sweeps, then render the report:
-
-```bash
-# Reflection ablation (ON vs OFF) on a benchmark
-python -m scripts.run_sweep --tasks local-demo --models mid --ablate-reflection
-
-# Cost-vs-success across tiers
-python -m scripts.run_sweep --tasks webarena --models frontier mid cheap
-
-# Realistic slice for the best config
-python -m scripts.run_sweep --tasks mind2web --models frontier --reflect --judge-model frontier
-
-# Charts + tables from everything under results/trajectories/
-python -m scripts.make_charts
-```
-
-Outputs in `results/reports/`:
-
-| Artifact | What it shows |
-|----------|---------------|
-| `cost_vs_success.png` | Cost-vs-success Pareto across model tiers / configs |
-| `sandbox_vs_realistic.png` | WebArena SR vs Mind2Web SR — the "illusion of progress" punchline |
-| `reflection_ablation.png` | Reflection ON vs OFF (the headline engineering result) |
-| `failure_taxonomy.png` | Where failed trajectories break down |
-| `summary.csv` / `summary.md` | The run-level table |
-
-The four findings the project targets:
-
-1. **Reflection ablation** — ON vs OFF on WebArena. Expected biggest single delta.
-2. **Observation modality** — a11y-only vs a11y + vision fallback (success Δ vs cost Δ).
-3. **Model sweep** — frontier / mid / cheap → cost-vs-success Pareto.
-4. **Sandbox vs realistic gap** — WebArena SR vs Online-Mind2Web SR for the best config.
-
----
-
-## Measured results (so far)
+## Measured results
 
 First real runs — agent **Claude Sonnet 4.6**, judge **Claude Opus 4.8**,
 WebJudge with screenshots, guardrails on. These are early numbers on a small
@@ -439,9 +268,20 @@ exhaustive extraction. Contrast Mind2Web's hard *comparison* tasks, where model
 capability **does** matter (Haiku 0/2, Sonnet & Opus 2/2). Task type, again.
 
 **Reflection ablation on the sandbox (WebArena matched, has headroom):**
-ON and OFF both score **0.67** — identical — and ON costs +64%. Reflection's
+ON and OFF both score **0.67** — identical — and ON costs +64%. McNemar's paired
+test (the correct test for the same task set) returns **p = 1.0 with zero
+discordant pairs**: ON and OFF solved *exactly* the same 4 of 6 tasks. Reflection's
 value was already captured by the cheaper commit-fix; on these tasks it just adds
-cost. An honest null result, not a win.
+cost.
+
+The honest reading is **"no *detectable* effect at this sample size," not "no
+effect"**: McNemar gives p = 1.0 on every paired ablation (WebArena matched,
+Mind2Web, local-demo), but each has ≤ 1 discordant pair, so the test is badly
+**underpowered** — it *cannot* reach significance here regardless of the truth.
+That's the limitation worth stating plainly: measuring reflection's true marginal
+value needs many more hard, *discriminating* tasks, which the emulation tax (one
+WebArena task ≈ 2.4 h) currently makes impractical. A null we can't yet
+distinguish from low power is still more honest than a headline win.
 
 **Observation-modality ablation (a11y vs a11y + vision fallback):**
 identical success (1.00 vs 1.00), +13% cost for vision. The accessibility tree is
@@ -464,8 +304,14 @@ sample, not the whole suite):
 | Mind2Web (realistic, WebJudge) | 15 tasks × 3 seeds = 45 attempts | **1.00 (0.92–1.00)** | none — 0 failures, all seeds |
 | WebArena (sandbox, exact-match) | 24 diverse shopping tasks | **0.44 (0.26–0.63)** | `premature_done` (13 of 14) |
 
-The CIs now **don't overlap** — a real, separable gap. But read it correctly:
-**it's a measurement gap, not a venue gap.** On the sandbox, 13 of 14 failures
+The gap is **statistically significant**, not just non-overlapping CIs (which is a
+weak test — overlapping CIs routinely hide real effects): a two-proportion z-test
+gives **z = −5.6, p < 0.0001**, Fisher's exact agrees (**p < 0.0001**), and the
+Newcombe difference interval is **−0.57 (95% CI −0.74 to −0.35)**, excluding zero.
+The realistic slice is also **pass@1 = pass@2 = pass@3 = 1.00** — *zero*
+run-to-run variance across 3 seeds, which makes the lenient-judge 100% look more
+suspect, not more solid. But read the gap correctly: **it's a measurement gap, not
+a venue gap.** On the sandbox, 13 of 14 failures
 are `premature_done` — the agent *finished* with a sensible answer that the
 exact-match scorer rejected (the curly-apostrophe / "6 verbatim sentences" class
 of rejection). On the realistic side, the lenient WebJudge passes everything (a
@@ -474,6 +320,41 @@ of rejection). On the realistic side, the lenient WebJudge passes everything (a
 inflated by weak LLM-as-judge scoring" thesis, now shown with non-overlapping
 intervals and a failure-mode breakdown. The honest single-sentence takeaway:
 *scoring methodology, not the benchmark venue, is the dominant driver of the gap.*
+
+### Where this lands vs. published benchmarks
+
+Putting our number in context (published figures are **approximate**, span
+different agent generations, and are cited from memory as of early 2025 — treat
+them as a landscape, not a leaderboard):
+
+| WebArena (812-task suite) | Success rate |
+|---|:---:|
+| Original GPT-4 baseline (2023 paper) | ~14% |
+| AgentOccam (the paper our `note` lever is from) | ~43% |
+| Strong 2024–25 agents / leaderboard top | ~60–72% |
+| Human | ~78% |
+| **This agent — diverse 24-task sample, exact-match** | **0.43** (CI 0.26–0.63) |
+| **This agent — same sample, scored WebArena's intended way (`fuzzy_match` judge)** | **0.57** (CI 0.37–0.74) |
+| **This agent — difficulty-matched 6-task set** | **0.67** |
+
+**Read this honestly — it is *not* a leaderboard claim:**
+
+- **We do not run the full 812-task suite.** The amd64 image runs under emulation
+  (one task ≈ 2.4 h), so our numbers are small, hard-skewed samples with wide CIs.
+  A fair full-suite figure for this agent would land roughly **mid-teens–30%**.
+- **Like-for-like (exact-match, hard sample), ~0.43–0.61 places a from-scratch
+  scaffold in the AgentOccam / 2024-mid-pack tier** — well above the 2023 GPT-4
+  baseline, clearly below SOTA and human. That matches the project's claim:
+  *capability ≈ 2023–24 baseline, not production.*
+- **Our Online-Mind2Web 1.00 is deliberately *not* compared to that benchmark's
+  ~30–50% human-aligned leaderboard** — it's a tiny, tractable, lenient-judge slice
+  with zero seed variance (pass@1 = pass@2 = pass@3 = 1.00). Quoting it as "we beat
+  Mind2Web" would be exactly the inflation this project exists to expose.
+
+The takeaway isn't a rank. It's that *where* an agent lands on these benchmarks is
+governed more by scoring methodology and task curation than by the agent — shown
+here with a significant cross-benchmark gap (z = −5.6, p < 0.0001) on **one
+unchanged agent**.
 
 ### Capability levers we tried — and an honest null
 
@@ -578,13 +459,18 @@ came from fixing the eval (fuzzy_match, +14pt), and the biggest *capability* mov
 came from the one research-identified mechanism (`note`). Capability up, score
 mostly flat, measurement dominant — the project's thesis, earned the hard way.
 
----
-
-## Measurement rigor
+## Measurement Rigor
 
 - **Confidence intervals.** `--runs N` runs each task N times; metrics report a
-  95% Wilson interval on success rate plus `pass_any_rate` (solved at least once)
-  — honest error bars for small, flaky slices.
+  95% Wilson interval on success rate, an **unbiased pass@k** estimator
+  (HumanEval-style, not just "solved at least once"), and `pass_any_rate` — honest
+  error bars for small, flaky slices.
+- **Significance testing.** Comparative claims are backed by the *correct test for
+  the design* — McNemar's paired test for same-task ablations (reflect ON vs OFF),
+  a two-proportion z-test / Fisher's exact + a Newcombe difference-of-proportions
+  CI for cross-benchmark gaps — instead of eyeballing whether two CIs overlap
+  (which systematically under-detects real effects). Pure stdlib, runs offline:
+  `python -m eval.stats run_a.jsonl run_b.jsonl [--paired]`.
 - **Parallelism.** `--workers N` runs tasks across processes (each gets its own
   browser + LLM client), so full sweeps don't take all night.
 - **Screenshot-grounded judging.** With `--capture-screenshots` (auto-on for
@@ -596,7 +482,7 @@ mostly flat, measurement dominant — the project's thesis, earned the hard way.
 - **Cost control.** The Anthropic adapter caches the frozen system prompt, so
   multi-step runs read it from cache instead of paying full price each step.
 
-## Guarding against hallucination
+## Guarding Against Hallucination
 
 Two kinds of hallucination, two kinds of defense:
 
@@ -605,7 +491,7 @@ Two kinds of hallucination, two kinds of defense:
   snapshot (`@e1`…), and `validate_action` rejects any ref not in that snapshot
   *before* it executes. The action space is small and typed, so there's nothing
   to invent. (A bad ref is logged as `hallucinated_action` in the taxonomy.)
-- **Hallucinated *answers* (stating a fact not on the page) — caught three ways:**
+- **Hallucinated *answers* (stating a fact not on the page) — caught four ways:**
   1. **Prompt grounding** — the system prompt forbids guessing values and tells
      the agent to verify on the page before finishing.
   2. **Answer-grounding score** — at `done`, the answer's content tokens
@@ -635,27 +521,247 @@ the model saw (so failures stay re-readable). Scoring is a separate pass over
 those records, so any run can be **re-scored and re-charted entirely offline**
 (`eval/metrics.py`, `eval/failure_taxonomy.py`).
 
----
+## Non-goals
 
-## Status
+Not a scraper, not a CAPTCHA/anti-bot bypass, not a browser-use wrapper. No
+irreversible side effects without confirmation outside the sandbox.
+
+## Skills Demonstrated
+
+- ReAct agent loop — perceive → plan → act → reflect cycle with step-budgeted termination
+- Reflection / self-correction — ablatable post-action self-critique that feeds the next plan
+- LLM-as-judge evaluation — WebJudge-style scoring with final-screenshot grounding (Online-Mind2Web)
+- Accessibility-tree observation — stable `@e1` element refs stamped via injected JavaScript
+- Set-of-Marks visual grounding — numbered-box screenshots rendered with Pillow for multimodal action selection
+- Provider-agnostic LLM abstraction — adapter pattern over Anthropic, OpenAI, Gemini plus a LiteLLM universal adapter
+- Factory pattern — model-string → provider inference with graceful native-SDK fallback to LiteLLM
+- Structured outputs — JSON-schema-constrained generation with a strict-schema transform for Anthropic
+- Prompt caching — ephemeral `cache_control` on the frozen system prompt to cut multi-step cost
+- Typed action space with validation — schema-guided actions hard-validated against the live snapshot before execution
+- Browser automation — Playwright sync API (goto/click/type/select/scroll/screenshot, popup following, networkidle settle)
+- Deterministic benchmark scoring — WebArena string/url/fuzzy/program_html scorers with 3-valued logic
+- Statistical rigor — Wilson 95% confidence intervals and unbiased pass@k (HumanEval-style) aggregation
+- Significance testing — McNemar's paired test, two-proportion z-test, Fisher's exact, and Newcombe difference-of-proportions CIs (pure stdlib, no SciPy)
+- Failure taxonomy — automated classification of failed trajectories into named categories
+- Parallel evaluation — ProcessPoolExecutor worker pool (process-per-task for Playwright thread safety)
+- Data visualization — Matplotlib + pandas report charts (cost-vs-success Pareto, ablations, taxonomy)
+- Reproducible experiment logging — JSONL trajectories that re-score and re-chart fully offline
+- Rate-limit resilience — SDK exponential backoff plus task-level retry
+- Docker sandbox integration — self-hosted WebArena (Magento) bring-up with `storage_state` auth
+- Anti-hallucination engineering — answer-grounding scoring, verify-before-done gate, structural action validation, site confinement
+- Cost/token accounting — per-call tracking with a price table and model-tier sweeps
+- Test engineering — pytest suite (84 tests) driven by a scripted offline LLM client (no API key/network)
+
+## Tech Stack
+
+- Python 3.11+ — packaged via `pyproject.toml` (PEP 621), with optional-dependency extras
+- Playwright — headless Chromium browser control (sync API)
+- Anthropic Claude — native SDK; default model with frontier/mid/cheap tiers (Opus / Sonnet / Haiku)
+- OpenAI — native SDK adapter
+- Google Gemini — native SDK adapter (`google-genai`)
+- LiteLLM — universal adapter for any other provider (Mistral, Llama via Ollama, Bedrock, Groq, …)
+- pandas — run aggregation and summary tables
+- Matplotlib — report chart rendering
+- Pillow (PIL) — Set-of-Marks overlays and demo-GIF assembly
+- pytest — unit + integration test suite
+- Docker — self-hosted WebArena benchmark sites
+- WebArena — deterministic, ground-truth-scored sandbox benchmark
+- Online-Mind2Web — realistic live-web slice scored by an LLM judge
+- concurrent.futures (ProcessPoolExecutor) — parallel task execution
+- browser-use — external baseline adapter (comparison line only)
+
+## Getting Started
+
+### Install
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -e .                 # agent + harness + Claude, ready to run
+playwright install chromium
+```
+
+The base install runs the **default model (Claude) out of the box** — no extra
+LLM library to install. For other providers you don't *have* to install
+anything (the factory falls back to the universal LiteLLM adapter), but you can
+add a native SDK for first-class behaviour / accurate cost:
+
+```bash
+pip install -e ".[litellm]"      # universal adapter — enables any other model
+pip install -e ".[openai]"       # OpenAI (native)
+pip install -e ".[gemini]"       # Gemini (native)
+pip install -e ".[all]"          # everything, incl. browser-use baseline
+```
+
+Copy `.env.example` → `.env` and fill in the key(s) for whatever you run — the
+CLIs load `.env` automatically.
+
+### Smoke test (no API key, no network)
+
+Verifies the whole pipeline — observation, action execution, scoring, metrics,
+taxonomy, and a scripted agent driving the bundled local site:
+
+```bash
+python -m scripts.smoke_test         # component + real-browser e2e
+pip install -e ".[dev]" && pytest    # unit tests for scorers/metrics/taxonomy
+```
+
+You can also exercise the runner with **no API key** using the offline `echo`
+model (it emits `done()` immediately) — handy for testing parallelism/logging:
+
+```bash
+python -m eval.harness --tasks local-demo --model echo --runs 2 --workers 2
+```
+
+### Run the offline demo with a real model
+
+The local demo runs against a bundled static site over `file://` — no Docker,
+no live web — so you can see a real LLM drive the agent for cents:
+
+```bash
+python -m eval.harness --tasks local-demo --model claude-sonnet-4-6
+python -m eval.harness --tasks local-demo --model claude-sonnet-4-6 --reflect
+```
+
+Each run writes `results/trajectories/<run>.jsonl` and prints a metrics summary
+plus a failure-taxonomy breakdown.
+
+### Choosing a model — any LLM
+
+The model string selects the provider automatically:
+
+```bash
+# Native adapters
+--model claude-opus-4-8            # Anthropic
+--model gpt-4o-mini                # OpenAI
+--model gemini-2.0-flash           # Google
+
+# Tier shortcuts (frontier / mid / cheap) — see agent/llm.py TIERS
+--model frontier                   # -> claude-opus-4-8
+--model mid                        # -> claude-sonnet-4-6  (default dev model)
+--model cheap                      # -> claude-haiku-4-5
+
+# Anything else, via the LiteLLM universal adapter (vendor/model form)
+--model mistral/mistral-large-latest
+--model ollama/llama3              # local, no API key
+--model groq/llama-3.1-70b-versatile
+--model bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0
+```
+
+Cost and tokens are tracked per call and aggregated per task (native adapters
+use a built-in price table; LiteLLM computes its own cost). The intended workflow
+is to build against one capable-but-cheap model (`mid`) and only run the
+multi-model sweep once the harness is stable.
+
+### WebArena (deterministic backbone)
+
+Self-hosted Dockerized sites, scored by ground-truth string/URL match — no LLM
+judge. The dataset and site images aren't bundled (large, and live upstream);
+this repo provides the adapter, a preflight check, and an integration smoke so
+the code path is verified before you bring up the heavy infrastructure.
+
+**0. Verify the adapter works (no Docker, no keys):**
+
+```bash
+python -m scripts.webarena_smoke      # templates __HOMEPAGE__ at the local site,
+                                       # runs + scores WebArena-schema tasks
+```
+
+**1. Stand up the sites.** Follow the upstream
+[WebArena](https://github.com/web-arena-x/webarena) instructions to run the
+self-hosted site containers (shopping, shopping-admin, reddit/forum, gitlab,
+wikipedia, map, homepage). They're distributed as Docker images upstream — the
+setup is multi-GB and machine-specific, so use their guide as the source of
+truth rather than copying commands here.
+
+**2. Wire the base URLs** in `.env` (`WA_SHOPPING`, `WA_GITLAB`, `WA_HOMEPAGE`, …
+— see `.env.example`), then preflight:
+
+```bash
+python -m scripts.check_webarena --tasks /path/to/webarena/test.raw.json
+# reports which sites are set + reachable and whether the task file is valid
+```
+
+**3. Run** (URLs and reference answers are templated against your base URLs by
+`eval/webarena/config.py`; tasks whose required site isn't configured are
+skipped, not 404'd):
+
+```bash
+export WEBARENA_TASKS=/path/to/webarena/test.raw.json
+python -m scripts.run_sweep --tasks webarena --models frontier mid cheap --ablate-reflection
+```
+
+The deterministic scorers cover `string_match` (exact / must_include),
+`url_match`, LLM `fuzzy_match`, and best-effort `program_html` — with 3-valued
+logic so anything unverifiable is marked *unscored*, never guessed.
+
+### Online-Mind2Web (realistic slice)
+
+A small, **frozen**, difficulty-stratified slice scored by a WebJudge-style
+LLM-as-judge. A starter slice ships in
+[`eval/tasks/mind2web_slice.json`](eval/tasks/mind2web_slice.json) — expand it
+to ~30 tasks (easy 1–5 / medium 6–10 / hard 11+).
+
+```bash
+# Use a strong, separate judge model for scoring
+python -m eval.harness --tasks mind2web --model mid --judge-model frontier --guardrails
+```
+
+`--guardrails` blocks irreversible actions (purchases, submits, logins) — on for
+the open-web slice, unnecessary for WebArena which is safe by construction.
+
+> Open-web tasks are flaky by nature; keep this slice small and frozen. That
+> flakiness, and the success-rate collapse vs. the sandbox, is the point.
+
+### Experiments → charts
+
+Run the sweeps, then render the report:
+
+```bash
+# Reflection ablation (ON vs OFF) on a benchmark
+python -m scripts.run_sweep --tasks local-demo --models mid --ablate-reflection
+
+# Cost-vs-success across tiers
+python -m scripts.run_sweep --tasks webarena --models frontier mid cheap
+
+# Realistic slice for the best config
+python -m scripts.run_sweep --tasks mind2web --models frontier --reflect --judge-model frontier
+
+# Charts + tables from everything under results/trajectories/
+python -m scripts.make_charts
+
+# Demo GIF from a run captured with --capture-screenshots (no API cost)
+python -m scripts.make_demo_gif
+```
+
+Outputs in `results/reports/`:
+
+| Artifact | What it shows |
+|----------|---------------|
+| `cost_vs_success.png` | Cost-vs-success Pareto across model tiers / configs |
+| `sandbox_vs_realistic.png` | WebArena SR vs Mind2Web SR — the "illusion of progress" punchline |
+| `reflection_ablation.png` | Reflection ON vs OFF (the headline engineering result) |
+| `failure_taxonomy.png` | Where failed trajectories break down |
+| `summary.csv` / `summary.md` | The run-level table |
+
+### Project status
 
 - ✅ Agent scaffold (browser / observation / actions / memory / loop) — runs end-to-end
 - ✅ Observation: a11y refs **+ static-text channel**; popup/new-tab following; deeper settle
 - ✅ Provider-agnostic LLM layer (Claude / OpenAI / Gemini / any via LiteLLM) + cost tracking + caching
 - ✅ Reflection toggle, vision fallback, irreversible-action guardrail
-- ✅ Harness: metrics + **Wilson CIs**, `--runs` (pass@k), `--workers` (parallel), failure taxonomy, JSONL
+- ✅ Harness: metrics + **Wilson CIs**, unbiased **pass@k**, **significance tests** (McNemar / two-proportion z / Fisher's exact + Newcombe diff-CI), `--runs`, `--workers` (parallel), failure taxonomy, JSONL
 - ✅ Screenshot capture + observation persistence on failure
 - ✅ WebArena scorers (string / url / fuzzy / program_html, 3-valued) + Mind2Web WebJudge (text + screenshots)
 - ✅ Anti-hallucination: structural action validation + answer-grounding score + `--verify-answers` gate + grounded judge
-- ✅ WebArena prep: preflight checker + integration smoke (adapter verified against a local stand-in)
 - ✅ Robustness: site confinement, pagination detection, answer-grounding gate, scorer normalization, rate-limit retry, record-grouping
 - ✅ Multimodal: Set-of-Marks visual grounding (`--set-of-marks`) + verbatim prompting (measured; see results)
-- ✅ Offline local demo + smoke test + `echo` model + **pytest suite (59 tests)**
+- ✅ Offline local demo + smoke test + `echo` model + **pytest suite (84 tests)**
 - ✅ browser-use baseline adapter
-- ✅ First measured results recorded (reflection ablation on the realistic slice — see above)
-- ⬜ Stand up WebArena sites for the true sandbox-vs-realistic gap + demo GIF
+- ✅ WebArena Shopping site stood up (self-hosted, amd64 under emulation) + difficulty-matched sandbox-vs-realistic comparison
+- ✅ Demo GIF assembled from a real captured run
 
-## Non-goals
+### License
 
-Not a scraper, not a CAPTCHA/anti-bot bypass, not a browser-use wrapper. No
-irreversible side effects without confirmation outside the sandbox.
+Licensed under [Creative Commons Attribution-NonCommercial 4.0 International](https://creativecommons.org/licenses/by-nc/4.0/)
+(CC BY-NC 4.0) — see [LICENSE](LICENSE). You may share and adapt the work with
+attribution, but **not for commercial purposes**.

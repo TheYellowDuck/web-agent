@@ -29,7 +29,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from eval import failure_taxonomy, metrics  # noqa: E402
+from eval import failure_taxonomy, metrics, stats  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -230,6 +230,80 @@ def write_tables(df: pd.DataFrame, out_dir: Path) -> None:
     (out_dir / "summary.md").write_text(md + "\n", encoding="utf-8")
 
 
+def write_significance(df: pd.DataFrame, out_dir: Path) -> None:
+    """Emit significance.md: the correct test for each comparison the runs allow.
+
+    Paired reflect ON-vs-OFF (same base + model) → McNemar; the largest WebArena
+    vs the largest Mind2Web run → two-proportion z / Fisher + Newcombe diff CI.
+    Makes the statistics a generated artifact, not just a manual CLI call.
+    """
+    def fmt_p(p: float | None) -> str:
+        # Owns the comparator so callers write "p {fmt_p(...)}" → "p < 1e-5" /
+        # "p = 1". A rounded 0.0 means "below display resolution", not zero.
+        if p is None:
+            return "= n/a"
+        return "< 1e-5" if p < 1e-5 else f"= {p:g}"
+
+    lines = [
+        "# Significance tests",
+        "",
+        "Auto-generated from `results/trajectories/`. Paired comparisons (same "
+        "task set) use McNemar's test; unpaired cross-benchmark comparisons use a "
+        "two-proportion z-test + Fisher's exact + a Newcombe difference-of-"
+        "proportions CI. Non-overlapping CIs are *not* used as the test.",
+        "",
+    ]
+    wrote = False
+
+    # Paired: reflection ablation, grouped by (base, model).
+    for (base, model), g in df.groupby(["base", "model"]):
+        refl = {r["reflect"]: r["_trajs"] for _, r in g.iterrows()}
+        if "on" in refl and "off" in refl:
+            r = stats.compare_paired(refl["on"], refl["off"], label_a="on", label_b="off")
+            mc = r["mcnemar"]
+            verdict = "**significant**" if mc["significant_05"] else (
+                "no detectable effect (note: low power if discordant pairs are few)"
+            )
+            lines += [
+                f"## Reflection ablation — {base} ({model})  ·  paired / McNemar",
+                f"- ON {r['on_rate']} vs OFF {r['off_rate']} on {r['n_shared_tasks']} shared tasks",
+                f"- discordant pairs: ON-only {r['table']['on_only']}, "
+                f"OFF-only {r['table']['off_only']} (total {mc.get('discordant', mc['b'] + mc['c'])})",
+                f"- **p {fmt_p(mc['p_value'])}** ({mc['method']}) → {verdict}",
+                "",
+            ]
+            wrote = True
+
+    # Unpaired: best (largest n) WebArena vs best Mind2Web.
+    best: dict[str, Any] = {}
+    for _, r in df.iterrows():
+        b = r["benchmark"]
+        if b not in best or r["n"] > best[b]["n"]:
+            best[b] = r
+    if "webarena" in best and "mind2web" in best:
+        wa, m2 = best["webarena"], best["mind2web"]
+        r = stats.compare_unpaired(wa["_trajs"], m2["_trajs"],
+                                   label_a="webarena", label_b="mind2web")
+        z = r["z_test"]
+        verdict = "**significant**" if z["significant_05"] else "not significant"
+        lines += [
+            "## Sandbox vs realistic — WebArena vs Mind2Web  ·  unpaired",
+            f"- WebArena {r['webarena']['rate']} (n={r['webarena']['n']}, "
+            f"`{wa['label']}`) vs Mind2Web {r['mind2web']['rate']} "
+            f"(n={r['mind2web']['n']}, `{m2['label']}`)",
+            f"- difference {r['diff']}  ·  95% CI {r['diff_ci95']}",
+            f"- two-proportion z = {z['z']}, **p {fmt_p(z['p_value'])}**  ·  "
+            f"Fisher exact p {fmt_p(r['fisher_exact_p'])} → {verdict}",
+            "",
+        ]
+        wrote = True
+
+    if not wrote:
+        lines.append("(no comparable run pairs found — need an ON/OFF pair or "
+                     "both a WebArena and a Mind2Web run)")
+    (out_dir / "significance.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Render report charts from trajectories.")
     parser.add_argument("--results-dir", default=str(ROOT / "results" / "trajectories"))
@@ -251,6 +325,7 @@ def main(argv: list[str] | None = None) -> int:
     chart_reflection_ablation(df, out_dir / "reflection_ablation.png")
     chart_failure_taxonomy(df, out_dir / "failure_taxonomy.png")
     write_tables(df, out_dir)
+    write_significance(df, out_dir)
 
     print(f"Wrote charts + tables to {out_dir} ({len(df)} run(s)).")
     for f in sorted(os.listdir(out_dir)):
