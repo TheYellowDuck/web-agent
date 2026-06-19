@@ -766,6 +766,6 @@ Outputs in `results/reports/`:
 
 ### License
 
-Licensed under [Creative Commons Attribution-NonCommercial 4.0 International](https://creativecommons.org/licenses/by-nc/4.0/)
-(CC BY-NC 4.0) — see [LICENSE](LICENSE). You may share and adapt the work with
-attribution, but **not for commercial purposes**.
+Licensed under the [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/)
+— see [LICENSE](LICENSE). You may use, modify, and share the work for any
+non-commercial purpose with attribution, but **not for commercial purposes**.
