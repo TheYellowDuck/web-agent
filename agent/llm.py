@@ -162,10 +162,15 @@ class BaseLLMClient:
 
     provider: str = "base"
 
-    def __init__(self, model: str, *, max_tokens: int = 2048, temperature: float = 0.0):
+    def __init__(self, model: str, *, max_tokens: int = 2048, temperature: float = 0.0,
+                 use_tools: bool = False):
         self.model = model
         self.max_tokens = max_tokens
         self.temperature = temperature
+        # When True, structured action output is requested via the provider's
+        # *tool-use / function-calling* API instead of JSON-schema text output.
+        # Lets us measure malformed-action rate: tool-use vs text-parsed JSON.
+        self.use_tools = use_tools
         self.usage = Usage()
 
     def reset_usage(self) -> None:
@@ -238,7 +243,18 @@ class AnthropicClient(BaseLLMClient):
             ],
             "messages": api_messages,
         }
-        if json_schema is not None:
+        tool_mode = self.use_tools and json_schema is not None
+        if tool_mode:
+            # Function-calling path: the action schema becomes a forced tool, so
+            # the model returns a validated structured tool_use block instead of
+            # text we have to parse. (Compared against the json path below.)
+            kwargs["tools"] = [{
+                "name": "emit_action",
+                "description": "Emit the chosen thought and next action.",
+                "input_schema": json_schema,
+            }]
+            kwargs["tool_choice"] = {"type": "tool", "name": "emit_action"}
+        elif json_schema is not None:
             kwargs["output_config"] = {
                 "format": {
                     "type": "json_schema",
@@ -247,10 +263,15 @@ class AnthropicClient(BaseLLMClient):
             }
         resp = self._client.messages.create(**kwargs)
         text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
+        if tool_mode:
+            parsed = next((b.input for b in resp.content
+                           if getattr(b, "type", None) == "tool_use"), None)
+        else:
+            parsed = extract_json(text) if json_schema is not None else None
         usage = resp.usage
         return LLMResponse(
             text=text,
-            parsed=extract_json(text) if json_schema is not None else None,
+            parsed=parsed,
             model=self.model,
             input_tokens=getattr(usage, "input_tokens", 0) or 0,
             output_tokens=getattr(usage, "output_tokens", 0) or 0,
@@ -568,6 +589,7 @@ def make_llm_client(
     provider: Optional[str] = None,
     max_tokens: int = 2048,
     temperature: float = 0.0,
+    use_tools: bool = False,
 ) -> BaseLLMClient:
     """Build a client for `model`. Provider is inferred from the name unless
     given explicitly. A provider-prefixed name (``vendor/model``) routes to the
@@ -579,7 +601,7 @@ def make_llm_client(
     if model in ("echo", "noop"):
         return ScriptedLLMClient([], model=model)
     provider = provider or _infer_provider(model)
-    kw = {"max_tokens": max_tokens, "temperature": temperature}
+    kw = {"max_tokens": max_tokens, "temperature": temperature, "use_tools": use_tools}
 
     if provider == "litellm":
         return _make_litellm(model, kw)

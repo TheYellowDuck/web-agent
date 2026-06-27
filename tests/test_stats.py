@@ -113,6 +113,34 @@ def test_mcnemar_large_uses_chisquare():
     assert r["significant_05"] is True
 
 
+# --- Cohen's kappa (cross-evaluator agreement) -----------------------------
+
+
+def test_cohen_kappa_perfect_agreement():
+    # All agreements, no disagreements → κ = 1.0.
+    assert stats.cohen_kappa(5, 0, 0, 5) == 1.0
+
+
+def test_cohen_kappa_chance_level():
+    # Independent raters each at 50% → observed agreement equals chance → κ ≈ 0.
+    assert abs(stats.cohen_kappa(25, 25, 25, 25)) < 1e-9
+
+
+def test_cohen_kappa_directional_disagreement():
+    # substring-vs-type_aware shape: 10 both-pass, 9 both-fail, 4 disagree one way,
+    # 0 the other → high-but-imperfect positive κ.
+    k = stats.cohen_kappa(10, 0, 4, 9)
+    assert 0.5 < k < 0.8
+
+
+def test_cohen_kappa_undefined_when_constant():
+    # Both raters always pass → chance agreement is already perfect → undefined.
+    assert stats.cohen_kappa(10, 0, 0, 0) is None
+    assert stats.cohen_kappa(0, 0, 0, 0) is None     # empty
+    # One rater constant but the other varies → defined, and at chance level (0).
+    assert stats.cohen_kappa(5, 5, 0, 0) == 0.0
+
+
 # --- trajectory-level comparisons ------------------------------------------
 
 

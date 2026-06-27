@@ -1,6 +1,6 @@
 """Observation serialization (the static-text channel is the key bit)."""
 
-from agent.observation import Observation
+from agent.observation import Observation, _dedup_substrings, prune_observation
 
 
 def _obs():
@@ -60,3 +60,37 @@ def test_hash_is_stable_and_sensitive():
     assert a.hash() == b.hash()
     b.elements = b.elements[:1]
     assert a.hash() != b.hash()
+
+
+# --- AgentOccam-style pruning ----------------------------------------------
+
+
+def test_dedup_substrings_drops_contained_fragments():
+    lines = ["Great product, 5 stars, by Catso", "Catso", "5 stars", "Totally separate"]
+    out = _dedup_substrings(lines)
+    assert "Great product, 5 stars, by Catso" in out
+    assert "Catso" not in out and "5 stars" not in out      # fragments dropped
+    assert "Totally separate" in out                         # unrelated kept
+
+
+def test_prune_keeps_distinct_action_targets():
+    # Two distinct "Add to cart" buttons (different products) MUST both survive —
+    # pruning never de-duplicates by name.
+    o = Observation(
+        url="u", title="t",
+        elements=[
+            {"ref": "@e1", "role": "button", "name": "Add to cart", "rect": {"x": 0, "y": 0}},
+            {"ref": "@e2", "role": "button", "name": "Add to cart", "rect": {"x": 0, "y": 90}},
+        ],
+        texts=["Widget A $5", "$5", "Widget B $9", "$9"],
+    )
+    pruned = prune_observation(o)
+    assert len(pruned.elements) == 2                          # both targets kept
+    assert "$5" not in pruned.texts and "$9" not in pruned.texts  # fragments gone
+    assert pruned.texts == ["Widget A $5", "Widget B $9"]
+
+
+def test_prune_drops_exact_duplicate_elements():
+    dup = {"ref": "@e1", "role": "link", "name": "Home", "rect": {"x": 1, "y": 1}}
+    o = Observation(url="u", title="t", elements=[dup, dict(dup)], texts=[])
+    assert len(prune_observation(o).elements) == 1

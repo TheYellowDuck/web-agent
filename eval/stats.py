@@ -180,6 +180,32 @@ def mcnemar_test(b: int, c: int) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Inter-rater agreement (for cross-evaluator studies)
+# ---------------------------------------------------------------------------
+
+
+def cohen_kappa(n11: int, n10: int, n01: int, n00: int) -> Optional[float]:
+    """Cohen's κ for two binary raters from their 2x2 agreement table.
+
+    ``n11``/``n00`` are agreements (both pass / both fail); ``n10``/``n01`` the
+    disagreements. κ = (po - pe) / (1 - pe), correcting observed agreement for
+    chance. Returns 1.0 for perfect agreement, 0 for chance-level, <0 for worse
+    than chance; ``None`` when undefined (no items, or one rater is constant and
+    chance agreement is already perfect).
+    """
+    n = n11 + n10 + n01 + n00
+    if n == 0:
+        return None
+    po = (n11 + n00) / n
+    p_yes = ((n11 + n10) / n) * ((n11 + n01) / n)  # both say pass by chance
+    p_no = ((n01 + n00) / n) * ((n10 + n00) / n)   # both say fail by chance
+    pe = p_yes + p_no
+    if pe >= 1.0:
+        return None
+    return round((po - pe) / (1 - pe), 4)
+
+
+# ---------------------------------------------------------------------------
 # Trajectory-level comparisons (operate on JSONL dicts)
 # ---------------------------------------------------------------------------
 

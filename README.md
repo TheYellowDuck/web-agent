@@ -46,6 +46,14 @@ number comes from *scoring methodology and task curation* rather than capability
   WebArena's own `fuzzy_match` LLM scoring (I'd been under-counting "N/A"
   answers), **+4pt** from the one research-identified lever (an AgentOccam-style
   `note` scratchpad that cracked a 14-item extraction task).
+- **Same agent, two scorers, opposite biases — shown, not asserted.** A new
+  offline cross-evaluator audit holds the agent *fixed* and varies only the
+  scorer: a deterministic, **judge-free** type-aware re-score lifts the 24-task
+  WebArena number 0.43 → 0.61 (matching the LLM judge), and the
+  substring-vs-type-aware disagreement is **100% one-directional** (κ = 0.66) —
+  substring *systematically* under-counts. That's the rule-based-under-counts
+  direction (AgentRewardBench); the lenient WebJudge 100% on the realistic slice
+  is the over-counts direction (Online-Mind2Web). Neither matches expert humans.
 - **Difficulty-matched sandbox-vs-realistic:** the apparent gap is driven by
   *scoring* (strict exact-match vs lenient LLM judge), not venue — the same agent
   reads ~0.6 or ~1.0 depending on how you score it.
@@ -85,10 +93,13 @@ agent/
   browser.py      Playwright session: goto / snapshot / act / screenshot / close
                   (+ popup/new-tab following, networkidle settle)
   observation.py  a11y-tree refs (@e1, @e2 …) + static-text + pagination detection
-  actions.py      typed action space + validation + JSON schema for the LLM
+                  (+ AgentOccam-style prune_observation)
+  actions.py      typed action space (click/type/select/scroll/hover/press/upload/
+                  navigate/…) + validation + JSON schema for the LLM
   llm.py          model-agnostic client (Claude/OpenAI/Gemini/LiteLLM) + cost tracking
-                  (+ Anthropic prompt caching, offline 'echo' model)
+                  (+ Anthropic prompt caching, native tool-use path, 'echo' model)
   memory.py       compact running state (recent steps verbatim, older summarized)
+  workflow_memory.py  Agent Workflow Memory: induce reusable routines + inject (AWM)
   prompts.py      planner + reflection prompts (frozen system prompt)
   loop.py         ReAct + reflection loop, vision fallback, guardrails,
                   screenshot capture, observation persistence on failure
@@ -96,9 +107,11 @@ agent/
 eval/
   harness.py      runner: task -> trajectory -> score; CLI; JSONL; --runs/--workers
   metrics.py      success rate (by tier) + Wilson CIs + multi-run / pass@k
-  stats.py        significance tests (McNemar / z / Fisher) + effect-size CIs + pass@k
+  stats.py        significance tests (McNemar / z / Fisher) + effect-size CIs +
+                  pass@k + Cohen's κ (cross-evaluator agreement)
   failure_taxonomy.py  classify failed trajectories
   webarena/       URL templating + string/url/fuzzy/program_html scorers + loader
+                  + verified.py (type-aware *deterministic* scorer, no LLM judge)
   mind2web/       frozen slice loader + WebJudge LLM-as-judge (text + screenshots)
   baselines/      browser_use_runner.py (comparison line)
   local_site/     bundled offline demo site (file://)
@@ -107,6 +120,11 @@ eval/
 scripts/
   make_charts.py  Pareto / sandbox-vs-realistic / reflection / taxonomy charts
   run_sweep.py    orchestrate experiments across models + reflection settings
+  rescore_webarena.py  offline re-score: substring vs type-aware (no judge)
+  cross_evaluator.py   evaluator-family agreement matrix (κ) on a fixed run
+  induce_workflows.py  induce AWM routines from solved trajectories
+  measure_pruning.py   token reduction from observation pruning (offline)
+  measure_action_format.py  malformed-action rate: tool-use vs JSON text-parse
   smoke_test.py   offline pipeline check (no API key / network needed)
 tests/            pytest suite for scorers / metrics / taxonomy / actions / observation
 results/
@@ -148,6 +166,8 @@ empty/sparse or the agent is stuck) and how often it fires is a tracked metric.
 - Deterministic benchmark scoring — WebArena string/url/fuzzy/program_html scorers with 3-valued logic
 - Statistical rigor — Wilson 95% confidence intervals and unbiased pass@k (HumanEval-style) aggregation
 - Significance testing — McNemar's paired test, two-proportion z-test, Fisher's exact, and Newcombe difference-of-proportions CIs (pure stdlib, no SciPy)
+- Cross-evaluator agreement — Cohen's κ across scorer families on one fixed run, with directional disagreement; an independent, judge-free reproduction of WebArena-Verified's type-aware deterministic comparators
+- Agent Workflow Memory (AWM) — induce reusable routines from solved trajectories and inject the most relevant into the planner; native tool-use / function-calling action path measured against JSON text-parsing
 - Failure taxonomy — automated classification of failed trajectories into named categories
 - Parallel evaluation — ProcessPoolExecutor worker pool (process-per-task for Playwright thread safety)
 - Data visualization — Matplotlib + pandas report charts (cost-vs-success Pareto, ablations, taxonomy)
@@ -156,7 +176,7 @@ empty/sparse or the agent is stuck) and how often it fires is a tracked metric.
 - Docker sandbox integration — self-hosted WebArena (Magento) bring-up with `storage_state` auth
 - Anti-hallucination engineering — answer-grounding scoring, verify-before-done gate, structural action validation, site confinement
 - Cost/token accounting — per-call tracking with a price table and model-tier sweeps
-- Test engineering — pytest suite (84 tests) driven by a scripted offline LLM client (no API key/network)
+- Test engineering — pytest suite (117 tests) driven by a scripted offline LLM client (no API key/network)
 
 ## Tech Stack
 
@@ -463,6 +483,76 @@ order-history tasks — are genuine capability gaps, no cheap fix.)
 > therefore a **lower bound**; pass `--judge-model frontier` to score `fuzzy_match`
 > tasks as WebArena intends.
 
+### Cross-evaluator audit — the scorer moves the number more than the agent
+
+The cleanest test of this project's thesis is to hold the **agent fixed** and vary
+only the **scorer**. Two offline tools do exactly that on the saved 24-task
+WebArena run — no re-running, no Docker, and (the point) **no LLM judge**:
+`scripts/rescore_webarena.py` and `scripts/cross_evaluator.py`.
+
+**Deterministic type-aware re-scoring recovers the judge's gains without a judge.**
+ServiceNow's **WebArena-Verified** (Boisvert et al., NeurIPS 2025 SEA workshop)
+manually audited all 812 WebArena tasks, found the original substring + LLM-judge
+pipeline *under-counts* correct answers, and replaced it with deterministic
+type-aware comparators — cutting the false-negative rate by **11.3 points**.
+Re-scoring our own trajectories the same way (`eval/webarena/verified.py`)
+reproduces that, and the baseline re-score reproduces every shipped verdict
+exactly (10/23 = 0.435):
+
+| scorer (same 24 trajectories, no judge) | success rate |
+|---|:---:|
+| baseline substring (what shipped) | 0.435 (10/23) |
+| + `\|OR\|` operator & unicode/number folding | +task 386 |
+| + deterministic N/A-absence | **0.609 (14/23)** |
+
+Every recovery is a scoring artifact, not an agent change: **task 386** answered
+`"3"` to a `"65 \|OR\| 3"` reference the substring scorer couldn't parse (it
+wasn't implementing WebArena's *own* operator); **tasks 225/313/376** correctly
+stated "no reviews" / "no phone number listed" against an `N/A` reference. The
+deterministic **0.61 matches — slightly beats — the LLM-judge's 0.57**: you reach
+WebArena's intended score *without the judge at all*, which is WebArena-Verified's
+exact claim, now shown on our agent.
+
+**The disagreement is entirely one-directional** (cross-evaluator κ over the same
+set; agreement % / Cohen's κ):
+
+| | substring | type-aware | grounding@0.5 |
+|---|:---:|:---:|:---:|
+| **substring** | — | 83% / **+0.66** | 52% / +0.08 |
+| **type-aware** | 83% / +0.66 | — | 67% / +0.20 |
+
+Type-aware passes 4 tasks substring fails and substring passes **0** that
+type-aware fails — substring *systematically* under-counts, never the reverse.
+And answer-grounding is near-orthogonal to task success (κ = +0.08): a confidently
+*grounded* answer is frequently the *wrong* answer (the agent grounds a price it
+genuinely read — just not the right one), so the grounding gate catches
+hallucination, **not** incorrectness. A useful, honest bound on what that gate can do.
+
+**Both directions of the scorer bias, on one unchanged agent.** The 2025 literature
+documents evaluator error in *both* directions; this project now exhibits both:
+- **Rule-based scoring under-counts** — AgentRewardBench (Lù et al., 2025,
+  [arXiv:2504.08942](https://arxiv.org/abs/2504.08942)) finds rule-based eval
+  under-reports vs. expert humans. Our substring-vs-type-aware gap *is* that effect.
+- **Lenient LLM-judge scoring over-counts** — "An Illusion of Progress?"
+  (Online-Mind2Web, 2025, [arXiv:2504.01382](https://arxiv.org/abs/2504.01382))
+  finds prior auto-eval over-counts via agent-hallucination false positives. Our
+  realistic slice is the saturated end of that story: WebJudge passes **45/45 with
+  zero seed variance**, and even a strict grounding lens agrees — only because the
+  slice is too easy to discriminate. A 100% that is suspect, not solid.
+
+The honest synthesis is not "the LLM judge is wrong." It's that **neither
+rule-based nor naive LLM-judge matches expert humans, and they err in opposite
+directions** — the project's thesis, now triangulated against three independent
+2025 eval-methodology papers and reproduced on our own agent. *(Caveats: n = 23–24,
+single run; the N/A-absence detector is a deterministic heuristic, reported as a
+separate column above; the over-counting direction is cited from the literature
+plus our saturated slice, not freshly powered here.)*
+
+> Reproduce (offline, no API key): `python -m scripts.rescore_webarena
+> --trajectories results/trajectories/webarena-scale__claude-sonnet-4-6__reflect-on.jsonl
+> --tasks eval/webarena/shopping_scale.json` then `python -m scripts.cross_evaluator
+> --trajectories <same> --tasks eval/webarena/shopping_scale.json`.
+
 ### Planning + completeness gate (capability lever, measured)
 
 A lightweight planning scaffold (`--planning`: a persisted plan/checklist + a gate
@@ -507,6 +597,63 @@ came from fixing the eval (fuzzy_match, +14pt), and the biggest *capability* mov
 came from the one research-identified mechanism (`note`). Capability up, score
 mostly flat, measurement dominant — the project's thesis, earned the hard way.
 
+### Four standard "best-practice" levers — implemented and measured (mostly nulls)
+
+A literature scan flagged four agent-design practices this scaffold lacked. I
+implemented all four and measured each honestly; the recurring result is the
+thesis again — *the scaffolding people tout moves these numbers less than scoring
+and task type do.*
+
+1. **Extended action space — `hover`, `press(key)`, `upload`.** The agent could
+   previously only click/type/select/scroll/navigate. Added three standard
+   interactions, live-verified against browser fixtures (hover reveals a submenu,
+   `press Enter` submits a form, `upload` sets a file input). These unblock task
+   *kinds* the shopping slice doesn't contain — a coverage gain, not a score on
+   the current set. `press` keys are allow-listed so a typo can't drive the
+   keyboard somewhere surprising.
+
+2. **AgentOccam-style observation pruning (`--prune`).** Measured offline on 128
+   real saved Magento/WebArena observations: **−1.0% tokens (max −6%)**. Near-null
+   — *because the observation layer already does AgentOccam's core refinement*
+   (interactable-only list + de-duplicated leaf text). AgentOccam's large gains
+   come from taming a *raw* accessibility tree; this project never emitted one, so
+   there's little left to prune — an honest reason the +26.6pt AgentOccam headline
+   doesn't transfer. (`scripts/measure_pruning.py`.)
+
+3. **Native tool-use vs. text-parsed JSON (`--tool-use`).** Implemented the
+   Anthropic function-calling path, then measured the headroom: across **1,515
+   real actions in the saved trajectories, 0 parse errors and 0 invalid actions**
+   — the existing JSON-schema structured-output path already yields a **0%
+   malformed-action rate**, so native tool-use is an *equivalent alternative, not
+   a correctness upgrade*. A live A/B confirms both modes emit valid actions at
+   ~equal cost ($0.0023 vs $0.0025). A clean negative result.
+   (`scripts/measure_action_format.py`.)
+
+4. **Agent Workflow Memory (AWM, arXiv:2409.07429) (`--workflow-memory`).**
+   Implemented induction + retrieval + prompt injection; induced **29 canonical
+   routines from 142 solved trajectories** (retrieval is sensible — "laptops by
+   price" surfaces the "chairs by ascending price" routine). **Measured ON vs OFF
+   on the live 24-task WebArena set** (routines injected for ~7/8 tasks; a task
+   never retrieves its own solution): the binary success rate **did not move** —
+   0.435→0.435 (substring) / 0.609→0.609 (type-aware), **McNemar p = 1.0 with zero
+   discordant pairs** (ON and OFF solved *exactly* the same tasks) — while mean
+   cost fell ~25% this run ($0.106→$0.080) and behavior changed on 23/24 tasks.
+   AWM's effect was real but **sub-threshold**: it found *more* of each list (task
+   21: 0→3 of 5 reviewers; task 387: →4 of 6) and solved task 163 in **4 steps
+   instead of 13**, but partial extraction still fails WebArena's all-or-nothing
+   `must_include`. The cleanest confirmation yet of the thesis: a literature-backed
+   lever that improves *behavior and efficiency* but not the strict binary number.
+   (`scripts/induce_workflows.py`; n = 24, single run.)
+
+**Net:** all four land as near-nulls on the binary WebArena number *on this
+project* — the observation is already refined, malformed actions are already
+zero, the new actions need task kinds this slice lacks, and AWM (a genuine +12pt
+in its paper) here only moves *behavior, step-count and cost*, not the
+exact-match score. Exactly the pattern the rest of this README documents: **the
+knobs move the number less than the measurement does** — and the one lever that
+*should* have moved it (AWM) is blocked not by the agent but by all-or-nothing
+exact-match scoring, which is the whole thesis.
+
 ## Measurement Rigor
 
 - **Confidence intervals.** `--runs N` runs each task N times; metrics report a
@@ -527,6 +674,12 @@ mostly flat, measurement dominant — the project's thesis, earned the hard way.
 - **No silent mis-scoring.** WebArena scoring is 3-valued — a task it can't
   verify (e.g. `program_html` without captured page content) is marked *unscored*
   (`None`), never a guessed pass/fail.
+- **Cross-evaluator auditing.** Because the thesis is "the scorer moves the
+  number," the harness can re-score one fixed run under multiple evaluator
+  families and report their agreement — a deterministic type-aware scorer
+  (`eval/webarena/verified.py`, in the spirit of WebArena-Verified), the shipped
+  substring scorer, the LLM judge, and the grounding gate — with Cohen's κ and the
+  *direction* of every disagreement (`scripts/cross_evaluator.py`). Offline, no API.
 - **Cost control.** The Anthropic adapter caches the frozen system prompt, so
   multi-step runs read it from cache instead of paying full price each step.
 
@@ -759,9 +912,11 @@ Outputs in `results/reports/`:
 - ✅ Anti-hallucination: structural action validation + answer-grounding score + `--verify-answers` gate + grounded judge
 - ✅ Robustness: site confinement, pagination detection, answer-grounding gate, scorer normalization, rate-limit retry, record-grouping
 - ✅ Multimodal: Set-of-Marks visual grounding (`--set-of-marks`) + verbatim prompting (measured; see results)
-- ✅ Offline local demo + smoke test + `echo` model + **pytest suite (84 tests)**
+- ✅ Best-practice levers (implemented + measured): extended actions (`hover`/`press`/`upload`), observation pruning (`--prune`), native tool-use (`--tool-use`), Agent Workflow Memory (`--workflow-memory`)
+- ✅ Offline local demo + smoke test + `echo` model + **pytest suite (117 tests)**
 - ✅ browser-use baseline adapter
 - ✅ WebArena Shopping site stood up (self-hosted, amd64 under emulation) + difficulty-matched sandbox-vs-realistic comparison
+- ✅ Cross-evaluator audit: type-aware **deterministic** scorer (no judge) + Cohen's κ agreement matrix — reproduces WebArena-Verified's under-counting finding (0.43→0.61) offline
 - ✅ Demo GIF assembled from a real captured run
 
 ### License

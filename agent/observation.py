@@ -252,6 +252,56 @@ def _detect_pagination(elements: list[dict[str, Any]]) -> dict[str, Any]:
     return {}
 
 
+def _dedup_substrings(lines: list[str]) -> list[str]:
+    """Drop any line wholly contained in a longer retained line, preserving order.
+
+    Record blocks (a review/product row emitted whole) frequently repeat text that
+    is also captured as standalone fragments; keeping only the maximal line cuts
+    tokens without losing information. O(n²) but n ≤ ~100.
+    """
+    kept_norm: list[str] = []
+    # Longest first so a fragment sees its container already kept.
+    order = sorted(range(len(lines)), key=lambda i: len(lines[i]), reverse=True)
+    decision: dict[int, bool] = {}
+    for i in order:
+        norm = re.sub(r"\s+", " ", lines[i]).strip().lower()
+        if not norm:
+            decision[i] = False
+            continue
+        if any(norm in k for k in kept_norm):
+            decision[i] = False
+        else:
+            kept_norm.append(norm)
+            decision[i] = True
+    return [lines[i] for i in range(len(lines)) if decision.get(i)]
+
+
+def prune_observation(obs: "Observation") -> "Observation":
+    """AgentOccam-style observation refinement: remove redundant content the model
+    doesn't need, so the prompt carries signal not boilerplate.
+
+    Deliberately *safe* — it never drops an interactable element the agent might
+    act on (no de-duplication by name: two "Add to Cart" buttons are kept
+    distinct). It only (1) removes page-text fragments contained in a longer line
+    and (2) drops genuine duplicate element records (same ref/role/name/rect).
+    """
+    seen: set[tuple] = set()
+    elements: list[dict[str, Any]] = []
+    for e in obs.elements:
+        rect = e.get("rect", {})
+        key = (e.get("ref"), e.get("role"), e.get("name"),
+               rect.get("x"), rect.get("y"))
+        if key in seen:
+            continue
+        seen.add(key)
+        elements.append(e)
+    return Observation(
+        url=obs.url, title=obs.title, elements=elements,
+        texts=_dedup_substrings(obs.texts), truncated=obs.truncated,
+        pagination=obs.pagination, screenshot_b64=obs.screenshot_b64,
+    )
+
+
 def snapshot(page: Any, *, max_elements: int = 120, max_texts: int = 100) -> Observation:
     """Run the snapshot script against a Playwright page and build an Observation."""
     data = page.evaluate(

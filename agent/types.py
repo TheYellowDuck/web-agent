@@ -21,6 +21,9 @@ ActionType = Literal[
     "type",
     "select",
     "scroll",
+    "hover",
+    "press",
+    "upload",
     "navigate",
     "wait",
     "note",
@@ -32,6 +35,9 @@ ALL_ACTION_TYPES: tuple[str, ...] = (
     "type",
     "select",
     "scroll",
+    "hover",
+    "press",
+    "upload",
     "navigate",
     "wait",
     "note",
@@ -48,10 +54,12 @@ class Action:
     """
 
     type: ActionType
-    ref: Optional[str] = None          # element ref, e.g. "@e12" (click/type/select)
+    ref: Optional[str] = None          # element ref, e.g. "@e12" (click/type/select/hover)
     text: Optional[str] = None         # text to type
     option: Optional[str] = None       # option label/value for select
     direction: Optional[str] = None    # "up" | "down" | "left" | "right" for scroll
+    key: Optional[str] = None          # key name for press, e.g. "Enter" | "Escape"
+    path: Optional[str] = None         # local file path for upload
     target: Optional[str] = None       # url | "back" | "forward" for navigate
     ms: Optional[int] = None           # wait duration in milliseconds
     answer: Optional[str] = None       # extracted answer for done
@@ -108,6 +116,11 @@ class Step:
 
     def to_dict(self) -> dict[str, Any]:
         return dataclasses.asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "Step":
+        known = {f.name for f in dataclasses.fields(cls)}
+        return cls(**{k: v for k, v in d.items() if k in known})
 
 
 @dataclass
@@ -178,6 +191,18 @@ class Trajectory:
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), ensure_ascii=False)
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "Trajectory":
+        """Reconstruct a Trajectory from its ``to_dict`` form for offline re-scoring.
+
+        The derived fields (n_steps, total_cost_usd, …) in the dict are ignored —
+        only the stored constructor fields are restored, and steps are rebuilt.
+        """
+        known = {f.name for f in dataclasses.fields(cls)}
+        kwargs = {k: v for k, v in d.items() if k in known and k != "steps"}
+        kwargs["steps"] = [Step.from_dict(s) for s in d.get("steps", [])]
+        return cls(**kwargs)
 
 
 # ---------------------------------------------------------------------------

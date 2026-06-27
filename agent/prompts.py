@@ -21,6 +21,10 @@ Action space (emit exactly one per turn):
 - type(ref, text)           — focus an input and type text (replaces existing value)
 - select(ref, option)       — choose an option in a <select> by visible label
 - scroll(direction|ref)     — scroll "up"/"down" or bring a ref into view
+- hover(ref)                — hover an element to reveal a menu/tooltip it controls
+- press(key, ref?)          — press a key like "Enter" (submit a focused field),
+                              "Escape" (dismiss a dialog), "ArrowDown" (move in a menu)
+- upload(ref, path)         — set a file input to a local file path
 - navigate(target)          — go to a url, or "back"/"forward"
 - wait(ms)                  — wait for the page to update
 - note(text)                — record a finding to your scratchpad (no page change)
@@ -79,6 +83,7 @@ def build_planner_messages(
     plan: str = "",
     step_index: int = 0,
     max_steps: int = 15,
+    workflows: str = "",
 ) -> list[dict[str, str]]:
     """User-turn content for an action decision."""
     remaining = max_steps - step_index
@@ -86,6 +91,8 @@ def build_planner_messages(
         f"GOAL: {goal}",
         f"STEP: {step_index + 1} of {max_steps} ({remaining} step(s) left)",
     ]
+    if workflows:
+        blocks += ["", workflows]
     if planning:
         blocks += ["", "PLAN SO FAR:",
                    plan.strip() or "(none yet — create one in the 'plan' field)"]
@@ -134,9 +141,12 @@ def build_planner_messages(
 
 
 REFLECTION_INSTRUCTION = (
-    "You just executed an action. Compare the page before and after to decide "
-    "whether the action achieved its intended effect (made progress toward the "
-    "goal). Respond with JSON: {\"ok\": bool, \"note\": str}. If not ok, the note "
+    "You just executed an action. Using the BEFORE and AFTER snapshots above, "
+    "decide whether the action achieved its intended effect (made progress "
+    "toward the goal). Look at what actually CHANGED: did the URL change, did new "
+    "elements/text appear, did a value get entered? If the page is effectively "
+    "unchanged (same URL, same elements) the action most likely did nothing — "
+    "say so. Respond with JSON: {\"ok\": bool, \"note\": str}. If not ok, the note "
     "should say what went wrong so the next step can recover."
 )
 
@@ -147,16 +157,23 @@ def build_reflection_messages(
     before: Observation,
     after: Observation,
 ) -> list[dict[str, str]]:
+    # Give the judge BOTH states so it can detect "nothing changed" — a no-op
+    # click/scroll otherwise reads as success just because the page is non-empty.
+    url_changed = before.url != after.url
     content = "\n".join(
         [
             f"GOAL: {goal}",
             f"ACTION TAKEN: {action_desc}",
             "",
             f"URL BEFORE: {before.url}",
-            f"URL AFTER:  {after.url}",
+            f"URL AFTER:  {after.url}"
+            + ("" if url_changed else "   (unchanged)"),
+            "",
+            "PAGE BEFORE (elements):",
+            before.serialize(max_chars=1500),
             "",
             "PAGE AFTER (elements):",
-            after.serialize(max_chars=3000),
+            after.serialize(max_chars=1500),
             "",
             REFLECTION_INSTRUCTION,
         ]

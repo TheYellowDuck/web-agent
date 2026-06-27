@@ -16,6 +16,7 @@ results/trajectories/*.jsonl
 results/reports/*.png
 results/reports/*.csv
 results/reports/*.md
+results/reports/*.json
 results/screenshots/
 !results/**/.gitkeep
 

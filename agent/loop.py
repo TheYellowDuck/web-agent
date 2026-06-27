@@ -26,7 +26,7 @@ from agent import actions as A
 from agent.browser import ActionError, BrowserSession
 from agent.llm import BaseLLMClient
 from agent.memory import Memory
-from agent.observation import Observation
+from agent.observation import Observation, prune_observation
 from agent.prompts import (
     SYSTEM_PROMPT,
     build_planner_messages,
@@ -78,6 +78,12 @@ class AgentConfig:
     # unvisited — targets multi-step + incomplete-extraction failures.
     planning: bool = False
     check_completeness: bool = False
+    # AgentOccam-style observation refinement: drop redundant page-text fragments
+    # and duplicate element records before prompting (token-cheaper, safe).
+    prune_observation: bool = False
+    # Agent Workflow Memory: inject reusable routines induced from past runs into
+    # the planner prompt (off unless a workflow store is provided to the Agent).
+    workflow_memory: bool = False
 
     def as_dict(self) -> dict:
         # Full serialization so a saved trajectory records *every* lever that was
@@ -95,10 +101,14 @@ class Agent:
         config: Optional[AgentConfig] = None,
         *,
         on_step: Optional[Callable[[Step], None]] = None,
+        workflows: Optional[list] = None,
     ):
         self.llm = llm
         self.config = config or AgentConfig()
         self.on_step = on_step
+        # Agent Workflow Memory: induced routines from past runs (see
+        # agent.workflow_memory). Injected into the planner when enabled.
+        self._workflows = workflows or []
         self._art_dir: Optional[Path] = None
         self._allowed_origin: Optional[str] = None
 
@@ -145,16 +155,28 @@ class Agent:
         verified_once = False
         completeness_checked = False
         current_plan = ""
+        # AWM: pick the routines most relevant to this goal once, up front
+        # (offline memory is fixed for the run); never leak the task's own.
+        workflow_hint = ""
+        if self.config.workflow_memory and self._workflows:
+            from agent.workflow_memory import format_for_prompt, select_relevant
+            workflow_hint = format_for_prompt(
+                select_relevant(self._workflows, task.goal, exclude_task_id=task.task_id)
+            )
         seen_text: list[str] = []  # everything the agent has actually observed
         seen_lines: set[str] = set()
         stale_scrolls = 0
         for i in range(max_steps):
             obs = browser.snapshot()
+            if self.config.prune_observation:
+                obs = prune_observation(obs)
             # Site confinement: if a click / "back" left the site (or hit a blank
             # page), return to the task page instead of drifting off and guessing.
             if self._allowed_origin and _origin(obs.url) != self._allowed_origin:
                 browser.goto(task.start_url)
                 obs = browser.snapshot()
+                if self.config.prune_observation:
+                    obs = prune_observation(obs)
                 pending_note = (
                     f"You left {self._allowed_origin} (or hit a blank page) — "
                     "returned to the task site. Stay on this site."
@@ -197,7 +219,7 @@ class Agent:
                 messages=build_planner_messages(
                     task.goal, obs, memory, extra_note=pending_note, vision=use_vision,
                     set_of_marks=som, planning=self.config.planning, plan=current_plan,
-                    step_index=i, max_steps=max_steps,
+                    step_index=i, max_steps=max_steps, workflows=workflow_hint,
                 ),
                 json_schema=A.action_output_schema(),
                 images_b64=images,

@@ -80,3 +80,39 @@ def test_action_describe_roundtrip():
     a = Action(type="type", ref="@e2", text="hello")
     assert "type(" in a.describe() and "hello" in a.describe()
     assert Action.from_dict(a.to_dict()) == a
+
+
+# --- extended action space: hover / press / upload -------------------------
+
+
+def test_hover_requires_ref(obs):
+    assert A.validate_action(Action(type="hover"), obs)                  # no ref -> error
+    assert A.validate_action(Action(type="hover", ref="@e1"), obs) is None
+
+
+def test_press_requires_allowed_key(obs):
+    assert A.validate_action(Action(type="press"), obs)                  # no key -> error
+    assert "unsupported" in A.validate_action(Action(type="press", key="F13"), obs)
+    assert A.validate_action(Action(type="press", key="Enter"), obs) is None
+    # press may target a ref (focus then key) or fire at page level (no ref).
+    assert A.validate_action(Action(type="press", key="Escape", ref="@e2"), obs) is None
+
+
+def test_upload_requires_ref_and_path(obs):
+    assert A.validate_action(Action(type="upload", ref="@e2"), obs)      # no path -> error
+    assert A.validate_action(Action(type="upload", path="/tmp/x"), obs)  # no ref -> error
+    assert A.validate_action(
+        Action(type="upload", ref="@e2", path="/tmp/x"), obs) is None
+
+
+def test_new_actions_in_schema_enum():
+    enum = A.action_output_schema()["properties"]["action"]["properties"]["type"]["enum"]
+    assert {"hover", "press", "upload"} <= set(enum)
+    props = A.action_output_schema()["properties"]["action"]["properties"]
+    assert "key" in props and "path" in props
+
+
+def test_press_parse_and_describe():
+    a = A.parse_action({"type": "press", "key": "Enter", "ref": "e2"})
+    assert a.type == "press" and a.key == "Enter" and a.ref == "@e2"
+    assert "press(" in a.describe()

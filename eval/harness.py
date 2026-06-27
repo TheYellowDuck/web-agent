@@ -176,6 +176,7 @@ def run_one(
     headless: bool = True,
     provider: Optional[str] = None,
     judge_model: Optional[str] = None,
+    use_tools: bool = False,
 ) -> dict[str, Any]:
     """Run + score a single task. Self-contained so it can run in a subprocess."""
     import time
@@ -183,8 +184,9 @@ def run_one(
     from agent.browser import BrowserSession
 
     load_dotenv()  # workers are separate processes; ensure keys are present
-    llm = make_llm_client(model, provider=provider)
+    llm = make_llm_client(model, provider=provider, use_tools=use_tools)
     judge_llm = make_llm_client(judge_model) if judge_model else None
+    workflows = _load_workflows() if config.workflow_memory else None
     _maybe_reset_site(task)
     storage_state = _webarena_auth(task)
 
@@ -194,7 +196,7 @@ def run_one(
     for attempt in range(3):
         browser = BrowserSession(headless=headless, storage_state=storage_state).start()
         try:
-            traj = Agent(llm, config).run(task, browser=browser)
+            traj = Agent(llm, config, workflows=workflows).run(task, browser=browser)
         finally:
             browser.close()
         if not (traj.status == "error" and _is_rate_limit(traj.error)):
@@ -208,6 +210,22 @@ def run_one(
 def _is_rate_limit(error: Optional[str]) -> bool:
     e = (error or "").lower()
     return "rate_limit" in e or "ratelimit" in e or "429" in e
+
+
+_WORKFLOWS_PATH = ROOT / "results" / "reports" / "workflows.json"
+
+
+def _load_workflows(path: Optional[Path] = None) -> list:
+    """Load induced AWM workflows (see scripts.induce_workflows). Empty if none."""
+    from agent.workflow_memory import Workflow
+
+    p = path or _WORKFLOWS_PATH
+    if not p.exists():
+        print(f"[warn] --workflow-memory set but {p} is missing; run "
+              "`python -m scripts.induce_workflows` first.", file=sys.stderr)
+        return []
+    rows = json.loads(p.read_text(encoding="utf-8"))
+    return [Workflow.from_dict(r) for r in rows]
 
 
 _RESET_WARNED = False
@@ -253,6 +271,7 @@ def run_suite(
     headless: bool = True,
     provider: Optional[str] = None,
     judge_model: Optional[str] = None,
+    use_tools: bool = False,
     on_progress: Optional[Callable[[dict[str, Any]], None]] = None,
 ) -> list[dict[str, Any]]:
     """Run every (task × run), score, stream results to JSONL, return the dicts.
@@ -274,10 +293,11 @@ def run_suite(
         if workers <= 1:
             for task in jobs:
                 emit(run_one(task, model=model, config=config, headless=headless,
-                             provider=provider, judge_model=judge_model))
+                             provider=provider, judge_model=judge_model,
+                             use_tools=use_tools))
         else:
             kw = dict(model=model, config=config, headless=headless,
-                      provider=provider, judge_model=judge_model)
+                      provider=provider, judge_model=judge_model, use_tools=use_tools)
             with ProcessPoolExecutor(max_workers=workers) as ex:
                 futs = {ex.submit(run_one, task, **kw): task for task in jobs}
                 for fut in as_completed(futs):
@@ -314,6 +334,10 @@ def main(argv: Optional[list[str]] = None) -> int:
                         help="attach a numbered-box screenshot every step (multimodal)")
     parser.add_argument("--planning", action="store_true",
                         help="maintain a running plan + completeness gate for list tasks")
+    parser.add_argument("--prune", action="store_true",
+                        help="AgentOccam-style observation pruning (drop redundant text)")
+    parser.add_argument("--workflow-memory", action="store_true",
+                        help="inject reusable routines induced from past runs (AWM)")
     parser.add_argument("--max-steps", type=int, default=15)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--headed", action="store_true", help="run with a visible browser")
@@ -327,6 +351,9 @@ def main(argv: Optional[list[str]] = None) -> int:
                         help="save per-step screenshots (auto-on for mind2web)")
     parser.add_argument("--verify-answers", action="store_true",
                         help="bounce an ungrounded final answer back once to verify")
+    parser.add_argument("--tool-use", action="store_true",
+                        help="emit actions via native function-calling instead of "
+                             "JSON-schema text output (Anthropic)")
     parser.add_argument("--judge-model", default=None,
                         help="model for Mind2Web WebJudge scoring")
     parser.add_argument("--label", default=None, help="output filename label")
@@ -348,6 +375,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         confine_to_site=(args.tasks == "webarena"),
         planning=args.planning,
         check_completeness=args.planning,
+        prune_observation=args.prune,
+        workflow_memory=args.workflow_memory,
     )
 
     tasks = load_tasks(args.tasks, limit=args.limit)
@@ -372,7 +401,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     results = run_suite(
         tasks, model=model, config=config, out_path=out_path,
         runs=args.runs, workers=args.workers, headless=not args.headed,
-        provider=args.provider, judge_model=judge_model, on_progress=progress,
+        provider=args.provider, judge_model=judge_model, use_tools=args.tool_use,
+        on_progress=progress,
     )
 
     summary = metrics.summarize(results)

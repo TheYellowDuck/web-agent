@@ -13,7 +13,14 @@ from agent.observation import Observation
 from agent.types import ALL_ACTION_TYPES, Action
 
 # Refs are required for these (they address a snapshot element).
-_NEEDS_REF = {"click", "type", "select"}
+_NEEDS_REF = {"click", "type", "select", "hover", "upload"}
+
+# Keys the model may send to ``press`` (allow-listed so a typo can't drive the
+# keyboard somewhere surprising). Covers form submit, menu nav, and dismissal.
+PRESS_KEYS = {
+    "Enter", "Tab", "Escape", "Backspace", "Delete", "Home", "End",
+    "PageUp", "PageDown", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+}
 
 
 def action_output_schema() -> dict[str, Any]:
@@ -53,6 +60,17 @@ def action_output_schema() -> dict[str, Any]:
                     "direction": {
                         "type": "string",
                         "enum": ["up", "down", "left", "right"],
+                    },
+                    "key": {
+                        "type": "string",
+                        "description": (
+                            "Key for 'press', e.g. 'Enter' (submit), 'Escape' "
+                            "(dismiss), 'ArrowDown'. See the allowed set."
+                        ),
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Local file path for 'upload' (a file input).",
                     },
                     "target": {
                         "type": "string",
@@ -119,6 +137,13 @@ def validate_action(action: Action, obs: Observation) -> Optional[str]:
         return "'note' requires non-empty 'text'"
     if action.type == "select" and not action.option:
         return "'select' requires 'option'"
+    if action.type == "press":
+        if not action.key:
+            return "'press' requires 'key'"
+        if action.key not in PRESS_KEYS:
+            return f"unsupported key {action.key!r}; allowed: {sorted(PRESS_KEYS)}"
+    if action.type == "upload" and not action.path:
+        return "'upload' requires 'path'"
     if action.type == "scroll" and action.direction not in (
         "up",
         "down",

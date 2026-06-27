@@ -115,6 +115,9 @@ class BrowserSession:
             "type": self._type,
             "select": self._select,
             "scroll": self._scroll,
+            "hover": self._hover,
+            "press": self._press,
+            "upload": self._upload,
             "navigate": self._navigate,
             "wait": self._wait,
             "note": lambda a: None,    # scratchpad only — no page interaction
@@ -151,6 +154,24 @@ class BrowserSession:
             loc.select_option(label=a.option)
         except Exception:
             loc.select_option(value=a.option)
+
+    def _hover(self, a: Action) -> None:
+        # Reveal hover-triggered menus / tooltips (then the next snapshot can see
+        # the elements they expose).
+        self._locator(a.ref).hover(timeout=self.default_timeout_ms)
+
+    def _press(self, a: Action) -> None:
+        # Focus the ref first if given (e.g. press Enter in a specific search
+        # box); otherwise press at the page level (e.g. Escape to close a modal).
+        if a.ref:
+            self._locator(a.ref).press(a.key or "", timeout=self.default_timeout_ms)
+        else:
+            self.page.keyboard.press(a.key or "")
+
+    def _upload(self, a: Action) -> None:
+        if not os.path.exists(a.path or ""):
+            raise ActionError(f"upload path does not exist: {a.path!r}")
+        self._locator(a.ref).set_input_files(a.path, timeout=self.default_timeout_ms)
 
     def _scroll(self, a: Action) -> None:
         direction = a.direction or "down"
